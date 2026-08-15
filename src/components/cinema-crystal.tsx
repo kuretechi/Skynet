@@ -37,7 +37,7 @@ export function CinemaCrystal({
         </radialGradient>
       </defs>
 
-      <g className="crystal-rotate" style={{ transformOrigin: `${center}px ${center}px` }}>
+      <g>
         {[0.25, 0.5, 0.75, 1].map((ring) => (
           <polygon
             key={ring}

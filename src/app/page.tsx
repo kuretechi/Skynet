@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { CinemaCrystal } from "@/components/cinema-crystal";
+import { CrystalDrift } from "@/components/crystal-drift";
 
 export default async function LandingPage() {
   const user = await getCurrentUser();
@@ -20,10 +20,7 @@ export default async function LandingPage() {
           観た映画を棚に収め、好みを Cinema DNA として可視化し、まだ観ていない一本に「あなた専用のスコア」をつける。
         </p>
         <div className="flex justify-center py-4">
-          <CinemaCrystal
-            vector={{ feel: 0.72, think: 0.86, immerse: 0.9, story: 0.6, sense: 0.88, pulse: 0.4, explore: 0.78, depth: 0.84 }}
-            size={280}
-          />
+          <CrystalDrift size={280} />
         </div>
       </div>
 

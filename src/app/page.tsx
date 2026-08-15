@@ -32,6 +32,9 @@ export default async function LandingPage() {
         <Link href="/login" className="label border border-[var(--line)] px-4 py-4 text-center">
           SIGN IN
         </Link>
+        <Link href="/demo" className="label px-4 py-2 text-center text-[var(--muted)]">
+          ログインせずに CineType を試す
+        </Link>
       </div>
     </main>
   );

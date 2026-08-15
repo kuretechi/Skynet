@@ -65,7 +65,7 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--line)] bg-[rgba(8,8,10,0.92)] backdrop-blur-md">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--line)] bg-[var(--nav-background)] backdrop-blur-md">
       <ul className="mx-auto flex max-w-3xl items-stretch">
         {TABS.map((tab) => {
           const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`);

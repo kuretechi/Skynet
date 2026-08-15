@@ -38,10 +38,12 @@ export function PosterFrame({
           className="spine-texture flex h-full w-full flex-col justify-between p-3"
           style={{ background: spineColor(title) }}
         >
-          <span className="label" style={{ color: "rgba(236,233,228,0.55)" }}>
+          <span className="label" style={{ color: "var(--on-media-soft)" }}>
             {year ?? ""}
           </span>
-          <span className="display text-sm leading-tight text-[var(--foreground)]">{title}</span>
+          <span className="display text-sm leading-tight" style={{ color: "var(--on-media)" }}>
+            {title}
+          </span>
         </div>
       )}
     </div>

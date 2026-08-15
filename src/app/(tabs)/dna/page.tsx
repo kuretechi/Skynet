@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { AXIS_LABELS, pickVector, type Axis } from "@/lib/dna/axes";
 import { getCineType, rankCineTypes, topAxes } from "@/lib/dna/cinetype";
 import { featureVector } from "@/lib/features/generate";
+import { typeInk } from "@/lib/theme";
 import { CinemaCrystal, DnaBars } from "@/components/cinema-crystal";
 import { TasteUniverse, type UniversePoint } from "@/components/taste-universe";
 import { SectionHeader } from "@/components/movie-list";
@@ -62,7 +63,7 @@ export default async function DnaPage({ searchParams }: { searchParams: Promise<
       <header className="flex flex-col items-center gap-4 text-center">
         <span className="label">Your CineType</span>
         <CinemaCrystal vector={vector} size={300} accent={primary.accent} />
-        <h1 className="display text-3xl" style={{ color: primary.accent }}>
+        <h1 className="display text-3xl" style={{ color: typeInk(primary.accent) }}>
           {primary.name}
         </h1>
         <p className="text-sm text-[var(--muted)]">{primary.tagline}</p>
@@ -84,7 +85,7 @@ export default async function DnaPage({ searchParams }: { searchParams: Promise<
           {secondary.map((match) => (
             <li key={match.type.id} className="flex items-center justify-between py-3">
               <div>
-                <p className="text-sm" style={{ color: match.type.accent }}>
+                <p className="text-sm" style={{ color: typeInk(match.type.accent) }}>
                   {match.type.name}
                 </p>
                 <p className="text-xs text-[var(--muted)]">{match.type.tagline}</p>

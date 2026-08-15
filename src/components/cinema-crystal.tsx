@@ -47,7 +47,7 @@ export function CinemaCrystal({
               return `${center + Math.cos(angle) * r},${center + Math.sin(angle) * r}`;
             }).join(" ")}
             fill="none"
-            stroke="rgba(236,233,228,0.08)"
+            stroke="var(--ink-08)"
           />
         ))}
         <polygon points={polygon} fill="url(#crystal-fill)" stroke={accent} strokeWidth={1.2} />
@@ -77,7 +77,7 @@ export function CinemaCrystal({
                 dominantBaseline="middle"
                 fontSize={9}
                 letterSpacing={1.6}
-                fill="rgba(236,233,228,0.55)"
+                fill="var(--ink-55)"
               >
                 {AXIS_LABELS[axis].label}
               </text>

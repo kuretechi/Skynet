@@ -1,6 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { DEFAULT_THEME, THEME_STORAGE_KEY } from "@/lib/theme";
+
+// Applied before paint so a stored theme never flashes the default palette.
+const themeScript = `(function(){try{var t=localStorage.getItem(${JSON.stringify(
+  THEME_STORAGE_KEY,
+)});if(t)document.documentElement.dataset.theme=t;}catch(e){}})()`;
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -23,7 +29,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ja">
+    <html lang="ja" data-theme={DEFAULT_THEME}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} grain antialiased`}>{children}</body>
     </html>
   );

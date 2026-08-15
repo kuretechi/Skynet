@@ -200,7 +200,7 @@ export function TasteUniverse({ points, size = 320 }: { points: UniversePoint[];
           y1={hull[a].y}
           x2={hull[b].x}
           y2={hull[b].y}
-          stroke="rgba(236,233,228,0.12)"
+          stroke="var(--ink-12)"
           strokeWidth={0.8}
         />
       ))}
@@ -214,7 +214,7 @@ export function TasteUniverse({ points, size = 320 }: { points: UniversePoint[];
           dominantBaseline="middle"
           fontSize={7.5}
           letterSpacing={1.2}
-          fill="rgba(236,233,228,0.4)"
+          fill="var(--ink-40)"
           opacity={0.35 + hull[i].depth * 0.4}
         >
           {pole.label}
@@ -244,7 +244,7 @@ export function TasteUniverse({ points, size = 320 }: { points: UniversePoint[];
               r={r}
               fill={point.watched ? "var(--accent)" : "transparent"}
               fillOpacity={point.watched ? 0.3 + at.depth * 0.45 : 0}
-              stroke={point.watched ? "var(--accent)" : "rgba(236,233,228,0.5)"}
+              stroke={point.watched ? "var(--accent)" : "var(--ink-55)"}
               strokeWidth={0.9}
               strokeOpacity={0.35 + at.depth * 0.45}
             />

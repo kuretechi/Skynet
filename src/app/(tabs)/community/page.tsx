@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getCineType } from "@/lib/dna/cinetype";
 import { posterUrl } from "@/lib/movies/repository";
+import { typeInk } from "@/lib/theme";
 import { FollowButton, LikeButton, SpoilerText } from "@/components/community-buttons";
 import { SectionHeader } from "@/components/movie-list";
 import { PosterFrame, releaseYear } from "@/components/movie-visuals";
@@ -52,7 +53,7 @@ export default async function CommunityPage() {
                 >
                   <Link href={`/u/${other.id}`} className="flex flex-col gap-1">
                     <span className="text-sm">{other.name}</span>
-                    <span className="label" style={{ color: type?.accent ?? "var(--muted)" }}>
+                    <span className="label" style={{ color: type ? typeInk(type.accent) : "var(--muted)" }}>
                       {type?.name ?? "NO DNA YET"}
                     </span>
                     <span className="font-mono text-[10px] text-[var(--muted)]">
@@ -92,7 +93,7 @@ export default async function CommunityPage() {
                         {review.user.name}
                       </Link>
                       {type ? (
-                        <span className="label" style={{ color: type.accent }}>
+                        <span className="label" style={{ color: typeInk(type.accent) }}>
                           {type.name}
                         </span>
                       ) : null}

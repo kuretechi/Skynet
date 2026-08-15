@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/db";
-import { FEATURE_VERSION, featureVector, getOrCreateMovieFeatures } from "@/lib/features/generate";
+import {
+  FEATURE_VERSION,
+  featureVector,
+  getOrCreateMovieFeaturesMany,
+} from "@/lib/features/generate";
 import { AXES, type AxisVector, clampVector } from "./axes";
 import { bestCineType } from "./cinetype";
 
@@ -28,8 +32,11 @@ export async function computeCinemaDna(userId: string): Promise<DnaComputation> 
   const numerator = AXES.reduce((acc, axis) => ({ ...acc, [axis]: 0 }), {} as AxisVector);
   let weightSum = 0;
 
+  const features = await getOrCreateMovieFeaturesMany(ratings.map((r) => r.movie));
+
   for (const rating of ratings) {
-    const feature = await getOrCreateMovieFeatures(rating.movie);
+    const feature = features.get(rating.movieId);
+    if (!feature) continue;
     const vec = featureVector(feature);
     const signed = rating.score - NEUTRAL_RATING;
     const weight = Math.abs(signed);

@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { pickVector } from "@/lib/dna/axes";
 import { getCineType } from "@/lib/dna/cinetype";
-import { recommendForUser, scoreMovieForUser, getUserTasteContext } from "@/lib/recommend/engine";
+import { recommendForUser, scoreMoviesForUser, getUserTasteContext } from "@/lib/recommend/engine";
 import { CinemaCrystal } from "@/components/cinema-crystal";
 import { TypeCode } from "@/components/type-code";
 import { typeInk } from "@/lib/theme";
@@ -45,7 +45,7 @@ export default async function HomePage() {
 
   const ctx = await getUserTasteContext(user.id);
   const unrated = wantToWatch.filter((s) => !ctx.ratedMovieIds.has(s.movieId)).slice(0, 3);
-  const continueRating = await Promise.all(unrated.map((s) => scoreMovieForUser(s.movie, ctx)));
+  const continueRating = await scoreMoviesForUser(unrated.map((s) => s.movie), ctx);
 
   return (
     <main className="flex flex-col gap-12 pt-10">

@@ -1,14 +1,47 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { euclideanDistance } from "@/lib/dna/axes";
+import { type AxisVector, euclideanDistance } from "@/lib/dna/axes";
 import { RECOMMENDATION_POOL_SIZE } from "@/lib/config";
-import { getUserTasteContext, recommendForUser, scoreMovieForUser } from "@/lib/recommend/engine";
+import {
+  getUserTasteContext,
+  recommendForUser,
+  scoreMoviesForUser,
+  type ScoredMovie,
+} from "@/lib/recommend/engine";
 import { getMood, MOODS } from "@/lib/recommend/moods";
 import { prisma } from "@/lib/db";
 import { MovieSearch } from "@/components/movie-search";
 import { ScoredMovieCarousel, ScoredMovieRow, SectionHeader } from "@/components/movie-list";
 
 export const dynamic = "force-dynamic";
+
+async function moodRecommendations(
+  userId: string,
+  target: AxisVector | null,
+): Promise<ScoredMovie[]> {
+  if (!target) return [];
+  const [ctx, cached] = await Promise.all([
+    getUserTasteContext(userId),
+    prisma.movieFeature.findMany({ include: { movie: true }, take: 200 }),
+  ]);
+  const ranked = cached
+    .map((f) => ({
+      movie: f.movie,
+      distance: euclideanDistance(target, {
+        feel: f.feel,
+        think: f.think,
+        immerse: f.immerse,
+        story: f.story,
+        sense: f.sense,
+        pulse: f.pulse,
+        explore: f.explore,
+        depth: f.depth,
+      }),
+    }))
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, 6);
+  return scoreMoviesForUser(ranked.map((r) => r.movie), ctx);
+}
 
 export default async function DiscoverPage({
   searchParams,
@@ -19,39 +52,19 @@ export default async function DiscoverPage({
   const user = await requireUser();
   const mood = getMood(moodId);
 
-  const recommendations = await recommendForUser(user.id, {
-    limit: RECOMMENDATION_POOL_SIZE,
-    poolSize: RECOMMENDATION_POOL_SIZE,
-  });
+  const [recommendations, moodResults] = await Promise.all([
+    recommendForUser(user.id, {
+      limit: RECOMMENDATION_POOL_SIZE,
+      poolSize: RECOMMENDATION_POOL_SIZE,
+    }),
+    moodRecommendations(user.id, mood?.target ?? null),
+  ]);
 
   const forYou = recommendations.slice(0, 6);
   const hiddenGems = recommendations
     .filter((r) => r.movie.popularity < 55)
     .slice(0, 6);
   const outsideBubble = [...recommendations].sort((a, b) => a.score.match - b.score.match).slice(0, 4);
-
-  let moodResults: typeof recommendations = [];
-  if (mood) {
-    const ctx = await getUserTasteContext(user.id);
-    const cached = await prisma.movieFeature.findMany({ include: { movie: true }, take: 200 });
-    const ranked = cached
-      .map((f) => ({
-        movie: f.movie,
-        distance: euclideanDistance(mood.target, {
-          feel: f.feel,
-          think: f.think,
-          immerse: f.immerse,
-          story: f.story,
-          sense: f.sense,
-          pulse: f.pulse,
-          explore: f.explore,
-          depth: f.depth,
-        }),
-      }))
-      .sort((a, b) => a.distance - b.distance)
-      .slice(0, 6);
-    moodResults = await Promise.all(ranked.map((r) => scoreMovieForUser(r.movie, ctx)));
-  }
 
   return (
     <main className="flex flex-col gap-12 pt-10">

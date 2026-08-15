@@ -28,10 +28,12 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ pr
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const movie = await ensureMovieByProviderId(providerId);
+  const [movie, ctx] = await Promise.all([
+    ensureMovieByProviderId(providerId),
+    getUserTasteContext(user.id),
+  ]);
   if (!movie) notFound();
 
-  const ctx = await getUserTasteContext(user.id);
   const [scored, rating, shelves, reviews, similar] = await Promise.all([
     scoreMovieForUser(movie, ctx),
     prisma.rating.findUnique({ where: { userId_movieId: { userId: user.id, movieId: movie.id } } }),

@@ -8,7 +8,9 @@ import { BottomNav } from "@/components/bottom-nav";
 import { CinemaCrystal } from "@/components/cinema-crystal";
 import { FollowButton } from "@/components/community-buttons";
 import { SectionHeader } from "@/components/movie-list";
-import { MovieSpine, releaseYear } from "@/components/movie-visuals";
+import { releaseYear } from "@/components/movie-visuals";
+import { ShelfRack } from "@/components/shelf-rack";
+import { posterUrl } from "@/lib/movies/repository";
 
 export const dynamic = "force-dynamic";
 
@@ -58,19 +60,16 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
           shelf.movies.length > 0 ? (
             <section key={shelf.id} className="flex flex-col gap-4">
               <SectionHeader title={shelf.name} caption={`${shelf.movies.length}`} />
-              <div className="no-scrollbar -mx-5 overflow-x-auto px-5">
-                <div className="flex items-end gap-[3px] border-b border-[var(--line)] pb-3">
-                  {shelf.movies.map((item) => (
-                    <MovieSpine
-                      key={item.id}
-                      title={item.movie.title}
-                      providerId={item.movie.providerId}
-                      year={releaseYear(item.movie.releaseDate)}
-                      rating={ratingByMovie.get(item.movieId) ?? null}
-                    />
-                  ))}
-                </div>
-              </div>
+              <ShelfRack
+                items={shelf.movies.map((item) => ({
+                  id: item.id,
+                  title: item.movie.title,
+                  providerId: item.movie.providerId,
+                  year: releaseYear(item.movie.releaseDate),
+                  rating: ratingByMovie.get(item.movieId) ?? null,
+                  posterUrl: posterUrl(item.movie),
+                }))}
+              />
             </section>
           ) : null,
         )}

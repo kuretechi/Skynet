@@ -64,30 +64,70 @@ const rotate = ({ x, y, z }: Vec3, yaw: number, pitch: number): Vec3 => {
   return { x: rx, y: y * cp - rz * sp, z: rz * cp + y * sp };
 };
 
+const AUTO_SPIN = 0.00012;
+const DRAG_SENSITIVITY = 0.008;
+const FRICTION = 0.9;
+
 export function TasteUniverse({ points, size = 320 }: { points: UniversePoint[]; size?: number }) {
   const router = useRouter();
   const center = size / 2;
-  const [yaw, setYaw] = useState(0.6);
-  const [pitch, setPitch] = useState(0.32);
+  const [{ yaw, pitch }, setAngles] = useState({ yaw: 0.6, pitch: 0.32 });
   const [dragging, setDragging] = useState(false);
   const drag = useRef<{ x: number; y: number } | null>(null);
   const travelled = useRef(0);
+  const angles = useRef({ yaw: 0.6, pitch: 0.32 });
+  const pending = useRef({ yaw: 0, pitch: 0 });
+  const velocity = useRef({ yaw: 0, pitch: 0 });
+  const held = useRef(false);
 
+  // One rAF loop owns the rotation: pointer deltas are accumulated in refs and
+  // flushed once per frame, so a burst of pointermove events cannot stutter the
+  // render. Releasing keeps the last velocity and lets it decay into the
+  // idle spin.
   useEffect(() => {
-    if (dragging) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let frame = 0;
     let last = performance.now();
+
     const step = (now: number) => {
-      const dt = now - last;
+      const dt = Math.min(64, now - last);
       last = now;
-      setYaw((current) => current + dt * 0.00012);
+
+      const dragged = pending.current;
+      pending.current = { yaw: 0, pitch: 0 };
+
+      if (held.current) {
+        velocity.current = { yaw: dragged.yaw / dt, pitch: dragged.pitch / dt };
+      } else {
+        velocity.current = {
+          yaw: velocity.current.yaw * FRICTION,
+          pitch: velocity.current.pitch * FRICTION,
+        };
+      }
+
+      const idle = held.current || reduced ? 0 : AUTO_SPIN * dt;
+      const next = {
+        yaw: angles.current.yaw + dragged.yaw + (held.current ? 0 : velocity.current.yaw * dt) + idle,
+        pitch: Math.max(
+          -1.2,
+          Math.min(
+            1.2,
+            angles.current.pitch + dragged.pitch + (held.current ? 0 : velocity.current.pitch * dt),
+          ),
+        ),
+      };
+
+      if (next.yaw !== angles.current.yaw || next.pitch !== angles.current.pitch) {
+        angles.current = next;
+        setAngles(next);
+      }
+
       frame = requestAnimationFrame(step);
     };
+
     frame = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame);
-  }, [dragging]);
+  }, []);
 
   const place = (v: Vec3) => {
     const r = rotate(v, yaw, pitch);
@@ -116,6 +156,8 @@ export function TasteUniverse({ points, size = 320 }: { points: UniversePoint[];
       onPointerDown={(event) => {
         drag.current = { x: event.clientX, y: event.clientY };
         travelled.current = 0;
+        velocity.current = { yaw: 0, pitch: 0 };
+        held.current = true;
         setDragging(true);
       }}
       onPointerMove={(event) => {
@@ -128,19 +170,24 @@ export function TasteUniverse({ points, size = 320 }: { points: UniversePoint[];
         if (travelled.current > 6 && !event.currentTarget.hasPointerCapture(event.pointerId)) {
           event.currentTarget.setPointerCapture(event.pointerId);
         }
-        setYaw((current) => current + dx * 0.008);
-        setPitch((current) => Math.max(-1.2, Math.min(1.2, current + dy * 0.008)));
+        pending.current = {
+          yaw: pending.current.yaw + dx * DRAG_SENSITIVITY,
+          pitch: pending.current.pitch + dy * DRAG_SENSITIVITY,
+        };
       }}
       onPointerUp={() => {
         drag.current = null;
+        held.current = false;
         setDragging(false);
       }}
       onPointerLeave={() => {
         drag.current = null;
+        held.current = false;
         setDragging(false);
       }}
       onPointerCancel={() => {
         drag.current = null;
+        held.current = false;
         setDragging(false);
       }}
     >

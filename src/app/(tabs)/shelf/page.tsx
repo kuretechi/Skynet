@@ -1,7 +1,9 @@
 import { requireUser, ensureDefaultShelves } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { CreateShelfForm } from "@/components/create-shelf-form";
-import { MovieSpine, releaseYear } from "@/components/movie-visuals";
+import { releaseYear } from "@/components/movie-visuals";
+import { ShelfRack } from "@/components/shelf-rack";
+import { posterUrl } from "@/lib/movies/repository";
 import { SectionHeader } from "@/components/movie-list";
 
 export const dynamic = "force-dynamic";
@@ -48,19 +50,16 @@ export default async function ShelfPage() {
           {shelf.movies.length === 0 ? (
             <p className="text-xs text-[var(--muted)]">まだ空の棚です。映画詳細から追加できます。</p>
           ) : (
-            <div className="no-scrollbar -mx-5 overflow-x-auto px-5">
-              <div className="flex items-end gap-[3px] border-b border-[var(--line)] pb-3">
-                {shelf.movies.map((item) => (
-                  <MovieSpine
-                    key={item.id}
-                    title={item.movie.title}
-                    providerId={item.movie.providerId}
-                    year={releaseYear(item.movie.releaseDate)}
-                    rating={ratingByMovie.get(item.movieId) ?? null}
-                  />
-                ))}
-              </div>
-            </div>
+            <ShelfRack
+              items={shelf.movies.map((item) => ({
+                id: item.id,
+                title: item.movie.title,
+                providerId: item.movie.providerId,
+                year: releaseYear(item.movie.releaseDate),
+                rating: ratingByMovie.get(item.movieId) ?? null,
+                posterUrl: posterUrl(item.movie),
+              }))}
+            />
           )}
         </section>
       ))}

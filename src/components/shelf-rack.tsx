@@ -33,6 +33,7 @@ const SLOT = SPINE_WIDTH + GAP;
 export function ShelfRack({ items }: { items: ShelfItem[] }) {
   const scroller = useRef<HTMLDivElement>(null);
   const list = useRef<HTMLUListElement>(null);
+  const tail = useRef<HTMLLIElement>(null);
   const cases = useRef<(HTMLLIElement | null)[]>([]);
 
   useEffect(() => {
@@ -50,10 +51,13 @@ export function ShelfRack({ items }: { items: ShelfItem[] }) {
       const content = SLOT * items.length;
       if (width === 0 || content === 0) return;
 
-      // Half a viewport of padding lets the first and last tape reach the
-      // centre; without it they could never become the focused case.
+      // Half a viewport of slack lets the first and last tape reach the
+      // centre; without it they could never become the focused case. The
+      // trailing slack is a real element because Chrome drops a scroll
+      // container's end padding from its scrollable overflow.
       const pad = content > width ? Math.max(0, width / 2 - SLOT / 2) : 0;
-      listEl.style.paddingInline = `${pad}px`;
+      listEl.style.paddingLeft = `${pad}px`;
+      if (tail.current) tail.current.style.width = `${pad}px`;
 
       // Scrollable racks follow their own centre; short racks follow the page,
       // so the highlight still travels as you scroll past them.
@@ -65,7 +69,10 @@ export function ShelfRack({ items }: { items: ShelfItem[] }) {
           el.scrollLeft + listEl.getBoundingClientRect().left - el.getBoundingClientRect().left + pad;
         centre = (el.scrollLeft + width / 2 - first) / SLOT - 0.5;
         const focused = Math.max(0, Math.min(items.length - 1, Math.round(centre)));
-        snapTarget = first + (focused + 0.5) * SLOT - width / 2;
+        snapTarget = Math.max(
+          0,
+          Math.min(el.scrollWidth - width, first + (focused + 0.5) * SLOT - width / 2),
+        );
       } else {
         const rect = el.getBoundingClientRect();
         const progress = Math.max(
@@ -130,12 +137,13 @@ export function ShelfRack({ items }: { items: ShelfItem[] }) {
   return (
     <div
       ref={scroller}
-      className="no-scrollbar -mx-5 overflow-x-auto px-5"
+      className="no-scrollbar -mx-5 overflow-x-auto px-5 pt-14 pb-4"
+      style={{ perspective: "900px", perspectiveOrigin: "50% 45%" }}
     >
       <ul
         ref={list}
-        className="flex items-end border-b border-[var(--line)] pt-6 pb-3"
-        style={{ gap: GAP, perspective: "900px", perspectiveOrigin: "50% 40%" }}
+        className="flex items-end border-b border-[var(--line)] pb-3"
+        style={{ gap: GAP, transformStyle: "preserve-3d" }}
       >
         {items.map((item, index) => (
           <li
@@ -219,6 +227,7 @@ export function ShelfRack({ items }: { items: ShelfItem[] }) {
             </div>
           </li>
         ))}
+        <li ref={tail} aria-hidden className="shrink-0" style={{ height: CASE_HEIGHT }} />
       </ul>
     </div>
   );

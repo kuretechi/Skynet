@@ -104,6 +104,7 @@ Supabase もそのまま使えますが、接続文字列の選択に注意し�
 | `OPENAI_API_KEY` | 特徴量生成が決定論ルールのみになる |
 | `AUTH_SECRET` | 開発用の固定鍵にフォールバック（本番では必ず設定） |
 | `DATABASE_URL` | 未設定なら `.env` の SQLite（`file:./dev.db`）。Postgres URL を渡すと PostgreSQL に切り替わる |
+| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ウォッチルームが Supabase Realtime を使わず 3 秒ポーリングで更新される |
 
 TMDB を利用する場合は、TMDB の最新の利用条件とアトリビューション要件に従ってください。
 外部映画サイトのスクレイピングは行いません。

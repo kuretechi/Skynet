@@ -29,6 +29,9 @@ model User {
   reviewLikes  ReviewLike[]
   following    Follow[]  @relation("follower")
   followers    Follow[]  @relation("following")
+  hostedRooms  WatchRoom[]
+  roomMembers  RoomMember[]
+  roomReactions RoomReaction[]
 }
 
 /// Lazily cached external metadata. Never a full mirror of the provider DB.
@@ -58,6 +61,7 @@ model Movie {
   watchHistory    WatchHistory[]
   shelfMovies     ShelfMovie[]
   reviews         Review[]
+  watchRooms      WatchRoom[]
 
   @@unique([provider, providerId])
 }
@@ -197,6 +201,59 @@ model ReviewLike {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([reviewId, userId])
+}
+
+/// A shared space around one title. Playback happens on whatever service the
+/// members already use; the room only carries the clock and the reactions.
+model WatchRoom {
+  id         String    @id @default(cuid())
+  movieId    String
+  hostId     String
+  title      String
+  status     String    @default("scheduled") // scheduled | live | ended
+  visibility String    @default("followers") // followers | link
+  startedAt  DateTime?
+  endedAt    DateTime?
+  createdAt  DateTime  @default(now())
+
+  movie     Movie          @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  host      User           @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  members   RoomMember[]
+  reactions RoomReaction[]
+
+  @@index([status, createdAt])
+}
+
+/// `offsetMs` is how far behind the room clock this member is watching, so a
+/// member's own position is `(now - startedAt) - offsetMs`.
+model RoomMember {
+  id       String   @id @default(cuid())
+  roomId   String
+  userId   String
+  offsetMs Int      @default(0)
+  joinedAt DateTime @default(now())
+
+  room WatchRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])
+}
+
+/// `atMs` is the position inside the film, which is what makes the feed
+/// spoiler-safe for members who are behind and replayable after the room ends.
+model RoomReaction {
+  id        String   @id @default(cuid())
+  roomId    String
+  userId    String
+  atMs      Int
+  kind      String // emoji | comment
+  body      String
+  createdAt DateTime @default(now())
+
+  room WatchRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, createdAt])
 }
 
 model Follow {

@@ -7,7 +7,7 @@ const COOKIE = "pc_session";
 const MAX_AGE = 60 * 60 * 24 * 30;
 
 const secret = () =>
-  new TextEncoder().encode(process.env.AUTH_SECRET ?? "development-only-secret-change-me");
+  new TextEncoder().encode(process.env.AUTH_SECRET || "development-only-secret-change-me");
 
 export const hashPassword = (password: string) => bcrypt.hash(password, 10);
 export const verifyPassword = (password: string, hash: string) => bcrypt.compare(password, hash);

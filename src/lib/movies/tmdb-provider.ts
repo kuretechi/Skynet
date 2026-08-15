@@ -29,8 +29,8 @@ export class TmdbMovieProvider implements MovieProvider {
 
   constructor(
     private readonly apiKey: string,
-    private readonly language = process.env.TMDB_LANGUAGE ?? "ja-JP",
-    private readonly region = process.env.TMDB_REGION ?? "JP",
+    private readonly language = process.env.TMDB_LANGUAGE || "ja-JP",
+    private readonly region = process.env.TMDB_REGION || "JP",
   ) {}
 
   private async request<T>(path: string, params: Record<string, string | number | undefined> = {}): Promise<T> {

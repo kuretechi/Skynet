@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { createShelfAction, type ActionState } from "@/lib/actions";
 
 const MOTIFS = [
@@ -15,6 +15,10 @@ const initialState: ActionState = {};
 export function CreateShelfForm() {
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState(createShelfAction, initialState);
+
+  useEffect(() => {
+    if (state.ok) setOpen(false);
+  }, [state]);
 
   if (!open) {
     return (

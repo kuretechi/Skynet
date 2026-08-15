@@ -10,9 +10,12 @@ type Step = "welcome" | "rate" | "analyzing";
 export function OnboardingFlow({ initialRatedCount, name }: { initialRatedCount: number; name: string }) {
   const [step, setStep] = useState<Step>(initialRatedCount > 0 ? "rate" : "welcome");
   const [rated, setRated] = useState<string[]>([]);
+  // Rating revalidates this route, so initialRatedCount already grows with each
+  // rating; the baseline is frozen at mount to avoid counting them twice.
+  const [baseline] = useState(initialRatedCount);
   const [, startTransition] = useTransition();
 
-  const count = initialRatedCount + rated.length;
+  const count = Math.max(initialRatedCount, baseline + rated.length);
   const remaining = Math.max(0, ONBOARDING_TARGET_RATINGS - count);
 
   const finish = () => {

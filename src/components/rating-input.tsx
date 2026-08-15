@@ -19,14 +19,22 @@ export function RatingInput({
 }) {
   const [score, setScore] = useState(initialScore ?? 0);
   const [hover, setHover] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const shown = hover ?? score;
 
   const submit = (value: number) => {
+    const previous = score;
     setScore(value);
+    setError(null);
     startTransition(async () => {
-      await rateMovieAction(providerId, value);
+      const result = await rateMovieAction(providerId, value);
+      if (result?.error) {
+        setScore(previous);
+        setError(result.error);
+        return;
+      }
       onRated?.(value);
     });
   };
@@ -77,6 +85,11 @@ export function RatingInput({
         {shown ? shown.toFixed(1) : "—"}
         {pending ? " …" : ""}
       </span>
+      {error ? (
+        <span role="alert" className="font-mono text-xs text-[var(--accent)]">
+          {error}
+        </span>
+      ) : null}
     </div>
   );
 }

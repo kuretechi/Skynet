@@ -42,6 +42,18 @@ npm run dev
 
 デモアカウント: `demo@personal.cinema` / `cinema2024`
 
+### スマホ / ブラウザだけで開発する（GitHub Codespaces）
+
+リポジトリの **Code → Codespaces → Create codespace** から起動すると、`.devcontainer` が
+依存インストール・`.env` 生成・DB シードまで自動で行います。起動後は `npm run dev`、
+転送された 3000 番ポートの URL をブラウザで開けます。
+
+TMDB を使う場合は、リポジトリ設定の **Settings → Secrets and variables → Codespaces** に
+`TMDB_API_KEY` を登録してから codespace を作成してください（未登録ならモックカタログで動作）。
+
+なお、このアプリはサーバー処理（Server Actions / API Route / DB）が必須のため、
+静的配信のみの GitHub Pages では動作しません。
+
 ## 環境変数
 
 | 変数 | 未設定時の挙動 |

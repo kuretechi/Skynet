@@ -1,6 +1,16 @@
 /* Minimal offline shell for the installable PWA. */
-const CACHE = "personal-cinema-v1";
-const OFFLINE_URLS = ["/", "/offline"];
+const CACHE = "personal-cinema-v2";
+const OFFLINE_URLS = ["/offline"];
+
+/**
+ * Only build output that is immutable and user independent may be cached.
+ * HTML, RSC payloads and API responses are per-user, so they always go to the
+ * network — otherwise a signed-in tab can be served another account's page.
+ */
+const isCacheableAsset = (url) =>
+  url.pathname.startsWith("/_next/static/") ||
+  url.pathname.startsWith("/icons/") ||
+  /\.(?:css|js|woff2?|png|jpg|jpeg|svg|webp|ico)$/.test(url.pathname);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(OFFLINE_URLS)).then(() => self.skipWaiting()));
@@ -17,12 +27,15 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const { request } = event;
-  if (request.method !== "GET" || new URL(request.url).origin !== self.location.origin) return;
+  const url = new URL(request.url);
+  if (request.method !== "GET" || url.origin !== self.location.origin) return;
 
   if (request.mode === "navigate") {
-    event.respondWith(fetch(request).catch(() => caches.match("/offline").then((r) => r || caches.match("/"))));
+    event.respondWith(fetch(request).catch(() => caches.match("/offline")));
     return;
   }
+
+  if (!isCacheableAsset(url) || url.searchParams.has("_rsc")) return;
 
   event.respondWith(
     caches.match(request).then(

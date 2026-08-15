@@ -63,14 +63,17 @@ export function CinemaCrystal({
         ? AXES.map((axis, i) => {
             const angle = (Math.PI * 2 * i) / AXES.length - Math.PI / 2;
             const r = radius * 1.34;
-            const x = center + Math.cos(angle) * r;
+            const cos = Math.cos(angle);
+            const x = center + cos * r;
             const y = center + Math.sin(angle) * r;
+            // Anchor side labels inwards so long axis names stay inside the viewBox.
+            const anchor = cos > 0.3 ? "end" : cos < -0.3 ? "start" : "middle";
             return (
               <text
                 key={axis}
                 x={x}
                 y={y}
-                textAnchor="middle"
+                textAnchor={anchor}
                 dominantBaseline="middle"
                 fontSize={9}
                 letterSpacing={1.6}

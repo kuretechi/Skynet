@@ -93,7 +93,13 @@ npm run build      # 本番ビルド
 npm run lint       # ESLint
 npm run typecheck  # tsc --noEmit
 npm run db:seed    # デモデータ投入
+npm run slides:pdf # Marp スライド（docs/slides/pitch.md）を PDF に書き出す
 ```
+
+## 発表スライド
+
+`docs/slides/pitch.md`（Marp / 8 分発表 + 質疑 2 分構成）。md を更新したら
+`npm run slides:pdf` で `docs/slides/pitch.pdf` を再生成してコミットする。
 
 ## 仕様書で TBD の項目
 

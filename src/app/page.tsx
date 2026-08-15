@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { CrystalDrift } from "@/components/crystal-drift";
+import { Logo } from "@/components/logo";
 
 export default async function LandingPage() {
   const user = await getCurrentUser();
@@ -10,7 +11,7 @@ export default async function LandingPage() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-3xl flex-col justify-between px-6 py-14">
       <div className="flex flex-col gap-10">
-        <span className="label">Personal Cinema Platform</span>
+        <Logo size={40} />
         <h1 className="display text-4xl leading-[1.25]">
           映画を探す場所ではなく、
           <br />

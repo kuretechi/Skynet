@@ -73,6 +73,17 @@ TMDB を使う場合は、リポジトリ設定の **Settings → Secrets and va
 スキーマ反映は Vercel のビルド（`vercel-build`）で `prisma db push` が実行されます。
 デモデータが必要なら、Neon の接続文字列を `DATABASE_URL` に入れてローカルで `npm run db:seed` を実行してください。
 
+#### Supabase を使う場合
+
+Supabase もそのまま使えますが、接続文字列の選択に注意してください。
+
+- ダッシュボードの **Connect → Transaction pooler**（`postgres.<ref>@aws-N-<region>.pooler.supabase.com:6543`）
+  を `DATABASE_URL` に設定し、`?pgbouncer=true&connection_limit=1` を付ける
+- **Direct connection**（`db.<ref>.supabase.co:5432`）は IPv6 のみで解決されるため、
+  IPv4 しか持たない実行環境（Vercel の関数など）からは到達できない
+- スキーマ反映（`prisma db push`）だけは PgBouncer 経由だと不安定なので、
+  同じ pooler のホストの **5432**（session pooler）に向けて実行する
+
 ## 環境変数
 
 | 変数 | 未設定時の挙動 |

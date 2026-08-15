@@ -141,10 +141,13 @@ body {
 }
 
 /* touch-action is not inherited, so a finger landing on a plotted point would
-   still hand the gesture to the page scroller and cancel the drag. */
+   still hand the gesture to the page scroller and cancel the drag. Dragging with
+   a mouse would otherwise select the axis labels instead of rotating the hull. */
 .taste-universe,
 .taste-universe * {
   touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 @keyframes reveal-in {

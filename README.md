@@ -58,8 +58,10 @@ TMDB を使う場合は、リポジトリ設定の **Settings → Secrets and va
 
 すべてスマホのブラウザだけで完了します。
 
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/import?s=https%3A%2F%2Fgithub.com%2Fkuretechi%2FSkynet&project-name=personal-cinema&env=DATABASE_URL,AUTH_SECRET,TMDB_API_KEY&envDescription=DATABASE_URL%3A%20Neon%20%E3%81%AA%E3%81%A9%20Postgres%20%E3%81%AE%E6%8E%A5%E7%B6%9A%E6%96%87%E5%AD%97%E5%88%97%20%2F%20AUTH_SECRET%3A%20%E4%BB%BB%E6%84%8F%E3%81%AE%E3%83%A9%E3%83%B3%E3%83%80%E3%83%A0%E6%96%87%E5%AD%97%E5%88%97%20%2F%20TMDB_API_KEY%3A%20TMDB%20%E3%81%AE%20API%20%E3%82%AD%E3%83%BC&envLink=https%3A%2F%2Fgithub.com%2Fkuretechi%2FSkynet%23%E7%92%B0%E5%A2%83%E5%A4%89%E6%95%B0)
+
 1. https://neon.tech でサインアップし、プロジェクトを作成して接続文字列（`postgresql://...`）をコピー
-2. https://vercel.com に GitHub アカウントでサインインし、このリポジトリを Import
+2. 上の **Deploy** ボタン（Vercel の Import 画面が開きます。GitHub アカウントでサインイン）
 3. Environment Variables に以下を設定して Deploy
    - `DATABASE_URL` = Neon の接続文字列
    - `AUTH_SECRET` = 任意の 32 バイト以上のランダム文字列

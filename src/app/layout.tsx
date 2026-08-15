@@ -1,0 +1,30 @@
+import type { Metadata, Viewport } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+
+const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
+const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+
+export const metadata: Metadata = {
+  title: "Personal Cinema — 映画人生をつくる場所",
+  description:
+    "自分の映画棚を育てながら、映画の好みを Cinema DNA として可視化し、まだ観ていない映画の自分専用スコアを予測する Personal Cinema Platform。",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Personal Cinema" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#08080a",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
+};
+
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <html lang="ja">
+      <body className={`${geistSans.variable} ${geistMono.variable} grain antialiased`}>{children}</body>
+    </html>
+  );
+}

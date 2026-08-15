@@ -1,0 +1,211 @@
+// Personal Cinema Platform — data model
+// First-party data (ratings, shelves, features, DNA) is kept separate from
+// external metadata cached from the movie provider (TMDB).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  avatarSeed   String   @default("cinema")
+  onboardedAt  DateTime?
+  createdAt    DateTime @default(now())
+
+  ratings      Rating[]
+  watchHistory WatchHistory[]
+  shelves      Shelf[]
+  dna          CinemaDna?
+  reviews      Review[]
+  reviewLikes  ReviewLike[]
+  following    Follow[]  @relation("follower")
+  followers    Follow[]  @relation("following")
+}
+
+/// Lazily cached external metadata. Never a full mirror of the provider DB.
+model Movie {
+  id            String   @id @default(cuid())
+  provider      String   @default("tmdb")
+  providerId    String
+  title         String
+  originalTitle String?
+  overview      String   @default("")
+  releaseDate   String?
+  runtime       Int?
+  country       String?
+  language      String?
+  director      String?
+  posterPath    String?
+  backdropPath  String?
+  popularity    Float    @default(0)
+  genresJson    String   @default("[]")
+  keywordsJson  String   @default("[]")
+  castJson      String   @default("[]")
+  fetchedAt     DateTime @default(now())
+
+  features        MovieFeature[]
+  externalRatings ExternalRating[]
+  ratings         Rating[]
+  watchHistory    WatchHistory[]
+  shelfMovies     ShelfMovie[]
+  reviews         Review[]
+
+  @@unique([provider, providerId])
+}
+
+/// External rating signals kept explicitly separate from the community score.
+model ExternalRating {
+  id         String   @id @default(cuid())
+  movieId    String
+  provider   String
+  score      Float
+  scoreScale Float
+  voteCount  Int      @default(0)
+  fetchedAt  DateTime @default(now())
+
+  movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
+
+  @@unique([movieId, provider])
+}
+
+/// First-party 8-axis movie vector, generated on demand and versioned.
+model MovieFeature {
+  id              String   @id @default(cuid())
+  movieId         String
+  featureVersion  String
+  feel            Float
+  think           Float
+  immerse         Float
+  story           Float
+  sense           Float
+  pulse           Float
+  explore         Float
+  depth           Float
+  rawFeaturesJson String   @default("{}")
+  generatorType   String
+  generatedAt     DateTime @default(now())
+
+  movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
+
+  @@unique([movieId, featureVersion])
+}
+
+model Rating {
+  id        String   @id @default(cuid())
+  userId    String
+  movieId   String
+  score     Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, movieId])
+}
+
+model WatchHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  movieId   String
+  watchedAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, movieId])
+}
+
+model Shelf {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  kind      String   @default("custom") // watched | favorites | want_to_watch | custom
+  motif     String   @default("vhs") // vhs | cassette | film_roll | archive_box
+  createdAt DateTime @default(now())
+
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movies ShelfMovie[]
+
+  @@unique([userId, name])
+}
+
+model ShelfMovie {
+  id      String   @id @default(cuid())
+  shelfId String
+  movieId String
+  addedAt DateTime @default(now())
+
+  shelf Shelf @relation(fields: [shelfId], references: [id], onDelete: Cascade)
+  movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
+
+  @@unique([shelfId, movieId])
+}
+
+/// User taste vector on the same 8 axes + the derived CineType.
+model CinemaDna {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  featureVersion String
+  feel           Float
+  think          Float
+  immerse        Float
+  story          Float
+  sense          Float
+  pulse          Float
+  explore        Float
+  depth          Float
+  cineTypeId     String?
+  confidence     Float    @default(0)
+  ratingCount    Int      @default(0)
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  userId    String
+  movieId   String
+  text      String
+  spoiler   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movie Movie        @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  likes ReviewLike[]
+
+  @@unique([userId, movieId])
+}
+
+model ReviewLike {
+  id       String @id @default(cuid())
+  reviewId String
+  userId   String
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, userId])
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+}

@@ -14,6 +14,7 @@ import { getUserTasteContext, scoreMovieForUser, similarMovies } from "@/lib/rec
 import { sharedStrengths } from "@/lib/recommend/for-you";
 import { BottomNav } from "@/components/bottom-nav";
 import { MovieActions } from "@/components/movie-actions";
+import { MovieHero } from "@/components/movie-hero";
 import { PosterFrame, ScoreBlock, releaseYear } from "@/components/movie-visuals";
 import { RatingInput } from "@/components/rating-input";
 import { ReviewForm } from "@/components/review-form";
@@ -61,38 +62,25 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ pr
   const cast = movieCast(movie).slice(0, 6);
   const strengths = sharedStrengths(ctx.dna, scored.vector, 3);
   const backdrop = backdropUrl(movie);
+  const meta = `${releaseYear(movie.releaseDate)}${movie.runtime ? ` · ${movie.runtime}分` : ""}${
+    movie.director ? ` · ${movie.director}` : ""
+  }`;
 
   return (
     <div className="min-h-dvh pb-28">
       <div className="mx-auto max-w-3xl px-5">
-        <div
-          className="-mx-5 mb-6 h-44 bg-cover bg-center opacity-60"
-          style={backdrop ? { backgroundImage: `url(${backdrop})` } : { background: "var(--surface-2)" }}
+        <MovieHero
+          title={movie.title}
+          originalTitle={movie.originalTitle && movie.originalTitle !== movie.title ? movie.originalTitle : null}
+          meta={meta}
+          genres={genres.join(" / ")}
+          backdrop={backdrop}
+          posterUrl={posterUrl(movie)}
+          year={releaseYear(movie.releaseDate)}
+          score={scored.score.predicted.toFixed(1)}
         />
 
-        <main className="flex flex-col gap-10">
-          <section className="flex gap-5">
-            <PosterFrame
-              title={movie.title}
-              posterUrl={posterUrl(movie)}
-              year={releaseYear(movie.releaseDate)}
-              className="w-32 shrink-0"
-              sizes="128px"
-            />
-            <div className="flex flex-col gap-2">
-              <h1 className="display text-2xl leading-tight">{movie.title}</h1>
-              {movie.originalTitle && movie.originalTitle !== movie.title ? (
-                <p className="text-xs text-[var(--muted)]">{movie.originalTitle}</p>
-              ) : null}
-              <p className="label">
-                {releaseYear(movie.releaseDate)}
-                {movie.runtime ? ` · ${movie.runtime}分` : ""}
-                {movie.director ? ` · ${movie.director}` : ""}
-              </p>
-              <p className="text-xs text-[var(--muted)]">{genres.join(" / ")}</p>
-            </div>
-          </section>
-
+        <main className="relative z-10 flex flex-col gap-10 pt-10">
           <section className="grid grid-cols-3 gap-4 border-y border-[var(--line)] py-5">
             <ScoreBlock label="For You" value={scored.score.predicted.toFixed(1)} strong />
             <ScoreBlock label="Match" value={`${scored.score.match}`} suffix="%" />

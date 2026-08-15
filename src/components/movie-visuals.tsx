@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
 
 const PALETTE = ["#2a2f3a", "#33262a", "#232f2b", "#2f2a38", "#382f26", "#26313a", "#3a2f2f", "#2b3326"];
 
@@ -46,35 +45,6 @@ export function PosterFrame({
         </div>
       )}
     </div>
-  );
-}
-
-/** VHS-style spine used on the Shelf: the collection reads as physical media. */
-export function MovieSpine({
-  title,
-  providerId,
-  year,
-  rating,
-}: {
-  title: string;
-  providerId: string;
-  year?: string;
-  rating?: number | null;
-}) {
-  return (
-    <Link
-      href={`/movie/${providerId}`}
-      className="spine-texture group relative flex h-56 w-[44px] shrink-0 flex-col items-center justify-between rounded-[2px] border border-[var(--line)] py-3 transition-transform duration-200 hover:-translate-y-2 hover:shadow-[0_10px_30px_rgba(0,0,0,0.6)]"
-      style={{ background: spineColor(title) }}
-    >
-      <span className="label" style={{ color: "rgba(236,233,228,0.5)", letterSpacing: "0.1em" }}>
-        {year?.slice(2) ?? ""}
-      </span>
-      <span className="vertical-text max-h-40 overflow-hidden text-[11px] tracking-wide text-[var(--foreground)]">
-        {title}
-      </span>
-      <span className="text-[10px] text-[var(--accent-soft)]">{rating ? rating.toFixed(1) : "·"}</span>
-    </Link>
   );
 }
 

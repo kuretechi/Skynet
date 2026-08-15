@@ -110,25 +110,33 @@ const rotate = ({ x, y, z }: Vec3, yaw: number, pitch: number): Vec3 => {
 };
 
 const AUTO_SPIN = 0.00012;
-const DRAG_SENSITIVITY = 0.008;
+const DRAG_SENSITIVITY = 0.009;
 const FRICTION = 0.9;
+const PITCH_LIMIT = 1.2;
+// Release velocity is read over this window instead of the last frame, so a
+// steady drag does not fling the hull just because the final frame was long.
+const FLING_WINDOW = 90;
+const FLING_MAX = 0.012;
+
+const clampPitch = (pitch: number) => Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, pitch));
+const clampFling = (v: number) => Math.max(-FLING_MAX, Math.min(FLING_MAX, v));
 
 export function TasteUniverse({ points, size = 320 }: { points: UniversePoint[]; size?: number }) {
   const router = useRouter();
   const center = size / 2;
   const [{ yaw, pitch }, setAngles] = useState({ yaw: 0.6, pitch: 0.32 });
   const [dragging, setDragging] = useState(false);
-  const drag = useRef<{ x: number; y: number } | null>(null);
   const travelled = useRef(0);
   const angles = useRef({ yaw: 0.6, pitch: 0.32 });
-  const pending = useRef({ yaw: 0, pitch: 0 });
   const velocity = useRef({ yaw: 0, pitch: 0 });
-  const held = useRef(false);
+  const grab = useRef<{ x: number; y: number; yaw: number; pitch: number } | null>(null);
+  const pointer = useRef({ x: 0, y: 0 });
+  const trail = useRef<{ t: number; x: number; y: number }[]>([]);
 
-  // One rAF loop owns the rotation: pointer deltas are accumulated in refs and
-  // flushed once per frame, so a burst of pointermove events cannot stutter the
-  // render. Releasing keeps the last velocity and lets it decay into the
-  // idle spin.
+  // The hull is pinned to the pointer: while held, the angles are recomputed
+  // from the absolute distance travelled since pointerdown, so a dropped frame
+  // can never leave the rotation behind the cursor. Releasing hands over to the
+  // velocity measured across FLING_WINDOW, which decays into the idle spin.
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let frame = 0;
@@ -138,29 +146,23 @@ export function TasteUniverse({ points, size = 320 }: { points: UniversePoint[];
       const dt = Math.min(64, now - last);
       last = now;
 
-      const dragged = pending.current;
-      pending.current = { yaw: 0, pitch: 0 };
-
-      if (held.current) {
-        velocity.current = { yaw: dragged.yaw / dt, pitch: dragged.pitch / dt };
+      let next: { yaw: number; pitch: number };
+      const held = grab.current;
+      if (held) {
+        next = {
+          yaw: held.yaw + (pointer.current.x - held.x) * DRAG_SENSITIVITY,
+          pitch: clampPitch(held.pitch + (pointer.current.y - held.y) * DRAG_SENSITIVITY),
+        };
       } else {
         velocity.current = {
           yaw: velocity.current.yaw * FRICTION,
           pitch: velocity.current.pitch * FRICTION,
         };
+        next = {
+          yaw: angles.current.yaw + velocity.current.yaw * dt + (reduced ? 0 : AUTO_SPIN * dt),
+          pitch: clampPitch(angles.current.pitch + velocity.current.pitch * dt),
+        };
       }
-
-      const idle = held.current || reduced ? 0 : AUTO_SPIN * dt;
-      const next = {
-        yaw: angles.current.yaw + dragged.yaw + (held.current ? 0 : velocity.current.yaw * dt) + idle,
-        pitch: Math.max(
-          -1.2,
-          Math.min(
-            1.2,
-            angles.current.pitch + dragged.pitch + (held.current ? 0 : velocity.current.pitch * dt),
-          ),
-        ),
-      };
 
       if (next.yaw !== angles.current.yaw || next.pitch !== angles.current.pitch) {
         angles.current = next;
@@ -172,6 +174,39 @@ export function TasteUniverse({ points, size = 320 }: { points: UniversePoint[];
 
     frame = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame);
+  }, []);
+
+  const release = () => {
+    if (!grab.current) return;
+    const now = performance.now();
+    const recent = trail.current.filter((sample) => now - sample.t <= FLING_WINDOW);
+    const first = recent[0];
+    const span = first ? now - first.t : 0;
+    velocity.current =
+      first && span > 16
+        ? {
+            yaw: clampFling(((pointer.current.x - first.x) * DRAG_SENSITIVITY) / span),
+            pitch: clampFling(((pointer.current.y - first.y) * DRAG_SENSITIVITY) / span),
+          }
+        : { yaw: 0, pitch: 0 };
+    grab.current = null;
+    trail.current = [];
+    setDragging(false);
+  };
+
+  const releaseRef = useRef(release);
+  releaseRef.current = release;
+
+  // A release outside the svg before the pointer was captured would otherwise
+  // leave the hull stuck to a pointer that is no longer down.
+  useEffect(() => {
+    const end = () => releaseRef.current();
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+    return () => {
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+    };
   }, []);
 
   const place = (v: Vec3) => {
@@ -200,42 +235,34 @@ export function TasteUniverse({ points, size = 320 }: { points: UniversePoint[];
       aria-label="Taste Universe (3D feature space)"
       style={{ touchAction: "none", cursor: dragging ? "grabbing" : "grab" }}
       onPointerDown={(event) => {
-        drag.current = { x: event.clientX, y: event.clientY };
+        grab.current = {
+          x: event.clientX,
+          y: event.clientY,
+          yaw: angles.current.yaw,
+          pitch: angles.current.pitch,
+        };
+        pointer.current = { x: event.clientX, y: event.clientY };
+        trail.current = [{ t: performance.now(), x: event.clientX, y: event.clientY }];
         travelled.current = 0;
         velocity.current = { yaw: 0, pitch: 0 };
-        held.current = true;
         setDragging(true);
       }}
       onPointerMove={(event) => {
-        if (!drag.current) return;
-        const dx = event.clientX - drag.current.x;
-        const dy = event.clientY - drag.current.y;
-        drag.current = { x: event.clientX, y: event.clientY };
-        travelled.current += Math.abs(dx) + Math.abs(dy);
+        if (!grab.current) return;
+        travelled.current +=
+          Math.abs(event.clientX - pointer.current.x) + Math.abs(event.clientY - pointer.current.y);
+        pointer.current = { x: event.clientX, y: event.clientY };
+        const now = performance.now();
+        trail.current.push({ t: now, x: event.clientX, y: event.clientY });
+        while (trail.current.length > 2 && now - trail.current[0].t > FLING_WINDOW) trail.current.shift();
         // Capture only once it is a real drag, so a plain tap still reaches the point.
         if (travelled.current > 6 && !event.currentTarget.hasPointerCapture(event.pointerId)) {
           event.currentTarget.setPointerCapture(event.pointerId);
         }
-        pending.current = {
-          yaw: pending.current.yaw + dx * DRAG_SENSITIVITY,
-          pitch: pending.current.pitch + dy * DRAG_SENSITIVITY,
-        };
       }}
-      onPointerUp={() => {
-        drag.current = null;
-        held.current = false;
-        setDragging(false);
-      }}
-      onPointerLeave={() => {
-        drag.current = null;
-        held.current = false;
-        setDragging(false);
-      }}
-      onPointerCancel={() => {
-        drag.current = null;
-        held.current = false;
-        setDragging(false);
-      }}
+      onPointerUp={release}
+      onLostPointerCapture={release}
+      onPointerCancel={release}
     >
       <rect x={0} y={0} width={size} height={size} fill="var(--surface)" stroke="var(--line)" />
 

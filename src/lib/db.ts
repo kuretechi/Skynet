@@ -1,17 +1,17 @@
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
+import { Pool } from "pg";
 
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient; pool?: Pool };
 
 /**
- * A Supabase transaction pooler (port 6543) multiplexes connections, so Prisma
- * has to be told to stop relying on server-side prepared statements. The widely
- * copy-pasted `connection_limit=1` is dropped: pages fan out ~20 queries at
- * once and would spend their whole render waiting on a single connection.
- *
- * The session pooler on the same host (port 5432) is only good for schema work:
- * it hands out 15 clients per project in total, so serving pages through it
- * dies with `EMAXCONNSESSION` as soon as a couple of users tap around. Move
- * runtime traffic to 6543 even when the deployment points at 5432.
+ * The session pooler (port 5432) is only good for schema work: it hands out 15
+ * clients per project in total, so serving pages through it dies with
+ * `EMAXCONNSESSION` as soon as a couple of users tap around. Move runtime
+ * traffic to the transaction pooler on 6543 even when the deployment points at
+ * 5432, and drop the pooling hints that only mean something to Prisma's own
+ * query engine (`pgbouncer`, `connection_limit`) — node-postgres would forward
+ * them to the server as startup parameters.
  */
 function runtimeDatabaseUrl(): string | undefined {
   const url = process.env.DATABASE_URL;
@@ -20,16 +20,38 @@ function runtimeDatabaseUrl(): string | undefined {
   const sessionPooler = parsed.port === "5432" && parsed.hostname.endsWith(".pooler.supabase.com");
   if (sessionPooler) parsed.port = "6543";
   else if (parsed.port !== "6543") return undefined;
-  parsed.searchParams.set("pgbouncer", "true");
-  if (parsed.searchParams.get("connection_limit") === "1") {
-    parsed.searchParams.delete("connection_limit");
+  for (const key of ["pgbouncer", "connection_limit", "pool_timeout", "sslmode"]) {
+    parsed.searchParams.delete(key);
   }
   return parsed.toString();
 }
 
+/**
+ * Postgres goes through the node-postgres driver adapter rather than Prisma's
+ * own engine-side pool. Talking to PgBouncer, the engine wraps every statement
+ * in `BEGIN` / `DEALLOCATE ALL` / … / `COMMIT`, which is five network round
+ * trips per query; the adapter sends one unnamed extended-protocol query, so a
+ * read costs a single round trip. On a cross-region deployment (~175ms RTT)
+ * that is the difference between 870ms and 175ms for the very same query.
+ */
 function createPrismaClient(): PrismaClient {
-  const url = runtimeDatabaseUrl();
-  return url ? new PrismaClient({ datasources: { db: { url } } }) : new PrismaClient();
+  const connectionString = runtimeDatabaseUrl();
+  if (!connectionString) return new PrismaClient();
+
+  const pool =
+    globalForPrisma.pool ??
+    new Pool({
+      connectionString,
+      // Pages fan out ~10 queries at once; the transaction pooler multiplexes
+      // them, so a handful of real connections per instance is plenty.
+      max: 10,
+      idleTimeoutMillis: 30_000,
+      connectionTimeoutMillis: 10_000,
+      ssl: { rejectUnauthorized: false },
+    });
+  if (process.env.NODE_ENV !== "production") globalForPrisma.pool = pool;
+
+  return new PrismaClient({ adapter: new PrismaPg(pool) });
 }
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();

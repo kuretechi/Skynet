@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
@@ -20,6 +21,8 @@ import { RatingInput } from "@/components/rating-input";
 import { ReviewForm } from "@/components/review-form";
 import { SectionHeader } from "@/components/movie-list";
 import { LikeButton, SpoilerText } from "@/components/community-buttons";
+import { CarouselSkeleton, SectionSkeleton } from "@/components/skeletons";
+import type { Movie } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +37,7 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ pr
   ]);
   if (!movie) notFound();
 
-  const [scored, rating, shelves, reviews, similar] = await Promise.all([
+  const [scored, rating, shelves] = await Promise.all([
     scoreMovieForUser(movie, ctx),
     prisma.rating.findUnique({ where: { userId_movieId: { userId: user.id, movieId: movie.id } } }),
     prisma.shelf.findMany({
@@ -42,12 +45,6 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ pr
       include: { movies: { where: { movieId: movie.id }, select: { id: true } } },
       orderBy: { createdAt: "asc" },
     }),
-    prisma.review.findMany({
-      where: { movieId: movie.id },
-      include: { user: true, likes: true },
-      orderBy: { createdAt: "desc" },
-    }),
-    similarMovies(movie, 6),
   ]);
 
   const shelfState = {
@@ -59,7 +56,6 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ pr
     .filter((s) => s.kind === "custom")
     .map((s) => ({ id: s.id, name: s.name, contains: s.movies.length > 0 }));
 
-  const myReview = reviews.find((r) => r.userId === user.id);
   const genres = movieGenres(movie);
   const cast = movieCast(movie).slice(0, 6);
   const strengths = sharedStrengths(ctx.dna, scored.vector, 3);
@@ -130,58 +126,82 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ pr
             </section>
           ) : null}
 
-          {similar.length > 0 ? (
-            <section className="flex flex-col gap-4">
-              <SectionHeader title="Similar Structure" caption="8軸距離が近い作品" />
-              <ul className="no-scrollbar -mx-5 flex gap-4 overflow-x-auto px-5">
-                {similar.map((item) => (
-                  <li key={item.movie.id} className="w-24 shrink-0">
-                    <Link href={`/movie/${item.movie.providerId}`}>
-                      <PosterFrame
-                        title={item.movie.title}
-                        posterUrl={posterUrl(item.movie)}
-                        year={releaseYear(item.movie.releaseDate)}
-                        className="w-24"
-                        sizes="96px"
-                      />
-                      <p className="mt-2 truncate text-[11px]">{item.movie.title}</p>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
+          <Suspense fallback={<CarouselSkeleton title="Similar Structure" />}>
+            <SimilarStructure movie={movie} />
+          </Suspense>
 
-          <section className="flex flex-col gap-5">
-            <SectionHeader title="Reviews" caption={`${reviews.length}`} />
-            <ReviewForm
-              providerId={movie.providerId}
-              initialText={myReview?.text}
-              initialSpoiler={myReview?.spoiler}
-            />
-            <ul className="flex flex-col gap-6">
-              {reviews.map((review) => (
-                <li key={review.id} className="flex flex-col gap-2 border-t border-[var(--line)] pt-4">
-                  <Link href={`/u/${review.userId}`} className="label">
-                    {review.user.name}
-                  </Link>
-                  {review.spoiler ? (
-                    <SpoilerText text={review.text} />
-                  ) : (
-                    <p className="text-sm leading-relaxed">{review.text}</p>
-                  )}
-                  <LikeButton
-                    reviewId={review.id}
-                    initialLiked={review.likes.some((like) => like.userId === user.id)}
-                    initialCount={review.likes.length}
-                  />
-                </li>
-              ))}
-            </ul>
-          </section>
+          <Suspense fallback={<SectionSkeleton title="Reviews" rows={2} />}>
+            <Reviews movie={movie} userId={user.id} />
+          </Suspense>
         </main>
       </div>
       <BottomNav />
     </div>
+  );
+}
+
+async function SimilarStructure({ movie }: { movie: Movie }) {
+  const similar = await similarMovies(movie, 6);
+  if (similar.length === 0) return null;
+
+  return (
+    <section className="flex flex-col gap-4">
+      <SectionHeader title="Similar Structure" caption="8軸距離が近い作品" />
+      <ul className="no-scrollbar -mx-5 flex gap-4 overflow-x-auto px-5">
+        {similar.map((item) => (
+          <li key={item.movie.id} className="w-24 shrink-0">
+            <Link href={`/movie/${item.movie.providerId}`}>
+              <PosterFrame
+                title={item.movie.title}
+                posterUrl={posterUrl(item.movie)}
+                year={releaseYear(item.movie.releaseDate)}
+                className="w-24"
+                sizes="96px"
+              />
+              <p className="mt-2 truncate text-[11px]">{item.movie.title}</p>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+async function Reviews({ movie, userId }: { movie: Movie; userId: string }) {
+  const reviews = await prisma.review.findMany({
+    where: { movieId: movie.id },
+    include: { user: true, likes: true },
+    orderBy: { createdAt: "desc" },
+  });
+  const myReview = reviews.find((r) => r.userId === userId);
+
+  return (
+    <section className="flex flex-col gap-5">
+      <SectionHeader title="Reviews" caption={`${reviews.length}`} />
+      <ReviewForm
+        providerId={movie.providerId}
+        initialText={myReview?.text}
+        initialSpoiler={myReview?.spoiler}
+      />
+      <ul className="flex flex-col gap-6">
+        {reviews.map((review) => (
+          <li key={review.id} className="flex flex-col gap-2 border-t border-[var(--line)] pt-4">
+            <Link href={`/u/${review.userId}`} className="label">
+              {review.user.name}
+            </Link>
+            {review.spoiler ? (
+              <SpoilerText text={review.text} />
+            ) : (
+              <p className="text-sm leading-relaxed">{review.text}</p>
+            )}
+            <LikeButton
+              reviewId={review.id}
+              initialLiked={review.likes.some((like) => like.userId === userId)}
+              initialCount={review.likes.length}
+            />
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

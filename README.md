@@ -81,8 +81,9 @@ Supabase もそのまま使えますが、接続文字列の選択に注意し�
   の URI をそのまま `DATABASE_URL` に設定する
 - **Direct connection**（`db.<ref>.supabase.co:5432`）は IPv6 のみで解決されるため、
   IPv4 しか持たない実行環境（Vercel の関数など）からは到達できない
-- ポート 6543 の場合、実行時に `pgbouncer=true` が自動で付与される（`src/lib/db.ts`）。
-  これがないと PgBouncer 越しの Prisma が `prepared statement "sN" does not exist` で落ちる
+- Postgres の実行時接続は node-postgres ドライバアダプタ経由（`src/lib/db.ts`）。
+  Prisma 標準のエンジン経路は PgBouncer 相手に 1 クエリあたり 5 往復するため、
+  レイテンシがそのまま 5 倍になる。アダプタなら 1 往復で済む
 - `connection_limit=1` は付けない（付いていても実行時に外す）。1 ページで 20 件前後の
   クエリを並列に投げるため、接続が 1 本だとプール待ちでレンダリングが止まる
 - `prisma db push` は同じホストの **5432**（session pooler）へ自動で振り替えられる
@@ -91,6 +92,9 @@ Supabase もそのまま使えますが、接続文字列の選択に注意し�
   デプロイは `EMAXCONNSESSION` で弾かれることがある。ビルド時の push は最大 6 回
   （合計約 2.5 分）リトライするので、通常はそのまま復帰する
 - デモデータの seed も pooler の **5432** を `DATABASE_URL` に指定して実行する
+- Vercel の関数リージョンは `vercel.json` で `sin1`（Singapore）に固定している。
+  DB のラウンドトリップが体感速度を決めるので、Supabase のリージョンを
+  変えたときは同じ場所の Vercel リージョンに合わせて変更する
 
 ## 環境変数
 

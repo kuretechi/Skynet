@@ -5,6 +5,8 @@ import { getCineType } from "@/lib/dna/cinetype";
 import { signOutAction } from "@/lib/actions";
 import { getMovieProvider } from "@/lib/movies/provider";
 import { SectionHeader } from "@/components/movie-list";
+import { ThemeMenu } from "@/components/theme-menu";
+import { typeInk } from "@/lib/theme";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +28,7 @@ export default async function ProfilePage() {
         <h1 className="display text-2xl">{user.name}</h1>
         <p className="text-xs text-[var(--muted)]">{user.email}</p>
         {type ? (
-          <p className="label" style={{ color: type.accent }}>
+          <p className="label" style={{ color: typeInk(type.accent) }}>
             {type.name}
           </p>
         ) : null}
@@ -45,6 +47,11 @@ export default async function ProfilePage() {
             <span className="label">{stat.label}</span>
           </div>
         ))}
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <SectionHeader title="Theme" />
+        <ThemeMenu />
       </section>
 
       <section className="flex flex-col gap-3">

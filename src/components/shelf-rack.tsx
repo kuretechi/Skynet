@@ -137,14 +137,17 @@ export function ShelfRack({ items }: { items: ShelfItem[] }) {
               ) : null}
               <span
                 className="relative label"
-                style={{ color: "rgba(236,233,228,0.5)", letterSpacing: "0.1em" }}
+                style={{ color: "var(--on-media-soft)", letterSpacing: "0.1em" }}
               >
                 {item.year?.slice(2) ?? ""}
               </span>
-              <span className="relative vertical-text max-h-40 overflow-hidden text-[11px] tracking-wide text-[var(--foreground)]">
+              <span
+                className="relative vertical-text max-h-40 overflow-hidden text-[11px] tracking-wide"
+                style={{ color: "var(--on-media)" }}
+              >
                 {item.title}
               </span>
-              <span className="relative text-[10px] text-[var(--accent-soft)]">
+              <span className="relative text-[10px]" style={{ color: "var(--on-media-soft)" }}>
                 {item.rating ? item.rating.toFixed(1) : "·"}
               </span>
             </Link>
@@ -167,7 +170,9 @@ export function ShelfRack({ items }: { items: ShelfItem[] }) {
                   className="spine-texture flex h-full w-full flex-col justify-end p-3"
                   style={{ background: spineColor(item.title) }}
                 >
-                  <span className="display text-sm leading-tight text-[var(--foreground)]">{item.title}</span>
+                  <span className="display text-sm leading-tight" style={{ color: "var(--on-media)" }}>
+                    {item.title}
+                  </span>
                 </div>
               )}
               <span className="absolute inset-0 bg-gradient-to-l from-black/60 to-transparent" />

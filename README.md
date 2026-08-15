@@ -54,6 +54,23 @@ TMDB を使う場合は、リポジトリ設定の **Settings → Secrets and va
 なお、このアプリはサーバー処理（Server Actions / API Route / DB）が必須のため、
 静的配信のみの GitHub Pages では動作しません。
 
+### スマホに PWA としてインストールする（Vercel + Neon）
+
+すべてスマホのブラウザだけで完了します。
+
+1. https://neon.tech でサインアップし、プロジェクトを作成して接続文字列（`postgresql://...`）をコピー
+2. https://vercel.com に GitHub アカウントでサインインし、このリポジトリを Import
+3. Environment Variables に以下を設定して Deploy
+   - `DATABASE_URL` = Neon の接続文字列
+   - `AUTH_SECRET` = 任意の 32 バイト以上のランダム文字列
+   - `TMDB_API_KEY` = TMDB の API キー（省略時はモックカタログ）
+4. 発行された `https://<project>.vercel.app` をスマホで開き、共有メニューから「ホーム画面に追加」
+
+`DATABASE_URL` が `postgres://` / `postgresql://` で始まる場合は Prisma の datasource が
+自動で PostgreSQL に切り替わります（`scripts/sync-prisma-schema.mjs`）。ローカルはそのまま SQLite です。
+スキーマ反映は Vercel のビルド（`vercel-build`）で `prisma db push` が実行されます。
+デモデータが必要なら、Neon の接続文字列を `DATABASE_URL` に入れてローカルで `npm run db:seed` を実行してください。
+
 ## 環境変数
 
 | 変数 | 未設定時の挙動 |
@@ -61,6 +78,7 @@ TMDB を使う場合は、リポジトリ設定の **Settings → Secrets and va
 | `TMDB_API_KEY` | 同梱のモックカタログ（36 作品）で動作 |
 | `OPENAI_API_KEY` | 特徴量生成が決定論ルールのみになる |
 | `AUTH_SECRET` | 開発用の固定鍵にフォールバック（本番では必ず設定） |
+| `DATABASE_URL` | 未設定なら `.env` の SQLite（`file:./dev.db`）。Postgres URL を渡すと PostgreSQL に切り替わる |
 
 TMDB を利用する場合は、TMDB の最新の利用条件とアトリビューション要件に従ってください。
 外部映画サイトのスクレイピングは行いません。

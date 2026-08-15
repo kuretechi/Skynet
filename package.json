@@ -8,11 +8,15 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "db:push": "prisma db push",
+    "db:schema": "node scripts/sync-prisma-schema.mjs",
+    "db:push": "npm run db:schema && prisma db push",
     "db:seed": "tsx prisma/seed.ts",
-    "setup": "prisma generate && prisma db push && tsx prisma/seed.ts"
+    "setup": "npm run db:schema && prisma generate && prisma db push && tsx prisma/seed.ts",
+    "postinstall": "npm run db:schema && prisma generate",
+    "vercel-build": "npm run db:schema && prisma generate && prisma db push && next build"
   },
   "prisma": {
+    "schema": "prisma/schema.generated.prisma",
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {

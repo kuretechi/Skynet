@@ -140,6 +140,13 @@ body {
   scrollbar-width: none;
 }
 
+/* touch-action is not inherited, so a finger landing on a plotted point would
+   still hand the gesture to the page scroller and cancel the drag. */
+.taste-universe,
+.taste-universe * {
+  touch-action: none;
+}
+
 @keyframes reveal-in {
   from {
     opacity: 0;

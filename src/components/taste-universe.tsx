@@ -233,6 +233,7 @@ export function TasteUniverse({ points, size = 320 }: { points: UniversePoint[];
       viewBox={`0 0 ${size} ${size}`}
       role="img"
       aria-label="Taste Universe (3D feature space)"
+      className="taste-universe"
       style={{ touchAction: "none", cursor: dragging ? "grabbing" : "grab" }}
       onPointerDown={(event) => {
         grab.current = {
@@ -255,13 +256,20 @@ export function TasteUniverse({ points, size = 320 }: { points: UniversePoint[];
         const now = performance.now();
         trail.current.push({ t: now, x: event.clientX, y: event.clientY });
         while (trail.current.length > 2 && now - trail.current[0].t > FLING_WINDOW) trail.current.shift();
-        // Capture only once it is a real drag, so a plain tap still reaches the point.
-        if (travelled.current > 6 && !event.currentTarget.hasPointerCapture(event.pointerId)) {
+        // A touch pointer is implicitly captured by whatever it landed on; taking
+        // the capture would fire lostpointercapture there, which bubbles up here
+        // and used to end the drag one move in. The implicit capture already
+        // keeps the moves coming, so only mouse/pen needs an explicit capture,
+        // and only past 6px so that a plain tap still reaches the point.
+        if (
+          event.pointerType !== "touch" &&
+          travelled.current > 6 &&
+          !event.currentTarget.hasPointerCapture(event.pointerId)
+        ) {
           event.currentTarget.setPointerCapture(event.pointerId);
         }
       }}
       onPointerUp={release}
-      onLostPointerCapture={release}
       onPointerCancel={release}
     >
       <rect x={0} y={0} width={size} height={size} fill="var(--surface)" stroke="var(--line)" />

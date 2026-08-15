@@ -78,11 +78,16 @@ TMDB を使う場合は、リポジトリ設定の **Settings → Secrets and va
 Supabase もそのまま使えますが、接続文字列の選択に注意してください。
 
 - ダッシュボードの **Connect → Transaction pooler**（`postgres.<ref>@aws-N-<region>.pooler.supabase.com:6543`）
-  を `DATABASE_URL` に設定し、`?pgbouncer=true&connection_limit=1` を付ける
+  の URI をそのまま `DATABASE_URL` に設定する
 - **Direct connection**（`db.<ref>.supabase.co:5432`）は IPv6 のみで解決されるため、
   IPv4 しか持たない実行環境（Vercel の関数など）からは到達できない
-- スキーマ反映（`prisma db push`）だけは PgBouncer 経由だと不安定なので、
-  同じ pooler のホストの **5432**（session pooler）に向けて実行する
+- ポート 6543 の場合、実行時に `pgbouncer=true` が自動で付与される（`src/lib/db.ts`）。
+  これがないと PgBouncer 越しの Prisma が `prepared statement "sN" does not exist` で落ちる
+- `connection_limit=1` は付けない（付いていても実行時に外す）。1 ページで 20 件前後の
+  クエリを並列に投げるため、接続が 1 本だとプール待ちでレンダリングが止まる
+- `prisma db push` は同じホストの **5432**（session pooler）へ自動で振り替えられる
+  （`scripts/db-push.mjs`）。5432 は同時接続数が小さいのでアプリの実行時には使わない
+- デモデータの seed も pooler の **5432** を `DATABASE_URL` に指定して実行する
 
 ## 環境変数
 

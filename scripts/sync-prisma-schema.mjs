@@ -6,13 +6,13 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isPostgresUrl } from "./database-url.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const source = join(root, "prisma", "schema.prisma");
 const target = join(root, "prisma", "schema.generated.prisma");
 
-const url = process.env.DATABASE_URL ?? "";
-const provider = /^postgres(ql)?:\/\//.test(url) ? "postgresql" : "sqlite";
+const provider = isPostgresUrl(process.env.DATABASE_URL) ? "postgresql" : "sqlite";
 
 const schema = readFileSync(source, "utf8").replace(
   /provider = "sqlite"/,

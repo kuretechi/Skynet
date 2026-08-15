@@ -13,9 +13,14 @@ export function isPostgresUrl(url) {
 export function schemaDatabaseUrl(url) {
   if (!isPostgresUrl(url)) return url;
   const parsed = new URL(url);
-  if (parsed.port !== TRANSACTION_POOLER_PORT) return url;
+  const pooler =
+    parsed.port === TRANSACTION_POOLER_PORT ||
+    (parsed.port === SESSION_POOLER_PORT && parsed.hostname.endsWith(".pooler.supabase.com"));
+  if (!pooler) return url;
   parsed.port = SESSION_POOLER_PORT;
   parsed.searchParams.delete("pgbouncer");
-  parsed.searchParams.delete("connection_limit");
+  // The schema engine works serially, and the session pooler hands out at most
+  // 15 clients per project, so hold exactly one of them.
+  parsed.searchParams.set("connection_limit", "1");
   return parsed.toString();
 }

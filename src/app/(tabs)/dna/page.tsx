@@ -6,6 +6,8 @@ import { getCineType, rankCineTypes, topAxes } from "@/lib/dna/cinetype";
 import { featureVector } from "@/lib/features/generate";
 import { typeInk } from "@/lib/theme";
 import { CinemaCrystal, DnaBars } from "@/components/cinema-crystal";
+import { TypeCode, TypeCodeMeters } from "@/components/type-code";
+import { cineCode } from "@/lib/dna/code";
 import { TasteUniverse, type UniversePoint } from "@/components/taste-universe";
 import { SectionHeader } from "@/components/movie-list";
 import { ONBOARDING_TARGET_RATINGS } from "@/lib/config";
@@ -36,6 +38,7 @@ export default async function DnaPage({ searchParams }: { searchParams: Promise<
   const primary = getCineType(user.dna.cineTypeId) ?? ranked[0].type;
   const secondary = ranked.slice(1, 3);
   const strongest = topAxes(vector, 3);
+  const { code } = cineCode(vector);
 
   const features = await prisma.movieFeature.findMany({
     include: { movie: true },
@@ -61,11 +64,13 @@ export default async function DnaPage({ searchParams }: { searchParams: Promise<
   return (
     <main className={`flex flex-col gap-12 pt-10 ${reveal ? "reveal" : ""}`}>
       <header className="flex flex-col items-center gap-4 text-center">
-        <span className="label">Your CineType</span>
+        <span className="label">Your Type Code</span>
         <CinemaCrystal vector={vector} size={300} accent={primary.accent} />
-        <h1 className="display text-3xl" style={{ color: typeInk(primary.accent) }}>
-          {primary.name}
+        <h1 className="sr-only">
+          {code} {primary.name}
         </h1>
+        <TypeCode vector={vector} accent={typeInk(primary.accent)} />
+        <p className="label">{primary.name}</p>
         <p className="text-sm text-[var(--muted)]">{primary.tagline}</p>
         <p className="max-w-md text-sm leading-relaxed">{primary.description}</p>
         <p className="font-mono text-[11px] text-[var(--muted)]">
@@ -73,6 +78,11 @@ export default async function DnaPage({ searchParams }: { searchParams: Promise<
           {user.dna.featureVersion}
         </p>
       </header>
+
+      <section className="flex flex-col gap-4">
+        <SectionHeader title="Type Code" caption="8軸を4つの対で読む / 中央に近いほど拮抗" />
+        <TypeCodeMeters vector={vector} accent={typeInk(primary.accent)} />
+      </section>
 
       <section className="flex flex-col gap-4">
         <SectionHeader title="8 Axes" caption={strongest.map((a: Axis) => AXIS_LABELS[a].label).join(" / ")} />

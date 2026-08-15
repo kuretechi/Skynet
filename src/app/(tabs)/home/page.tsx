@@ -5,6 +5,8 @@ import { pickVector } from "@/lib/dna/axes";
 import { getCineType } from "@/lib/dna/cinetype";
 import { recommendForUser, scoreMovieForUser, getUserTasteContext } from "@/lib/recommend/engine";
 import { CinemaCrystal } from "@/components/cinema-crystal";
+import { TypeCode } from "@/components/type-code";
+import { typeInk } from "@/lib/theme";
 import { ScoredMovieCarousel, SectionHeader } from "@/components/movie-list";
 import { PosterFrame, releaseYear } from "@/components/movie-visuals";
 import { posterUrl } from "@/lib/movies/repository";
@@ -140,8 +142,13 @@ export default async function HomePage() {
           <Link href="/dna" className="flex items-center gap-6">
             <CinemaCrystal vector={dna} size={140} showLabels={false} accent={cineType?.accent ?? "#d8a657"} />
             <div>
-              <p className="display text-xl">{cineType?.name ?? "ANALYZING"}</p>
-              <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">{cineType?.tagline}</p>
+              {cineType ? (
+                <TypeCode vector={dna} accent={typeInk(cineType.accent)} />
+              ) : (
+                <p className="display text-xl">ANALYZING</p>
+              )}
+              <p className="label mt-2">{cineType?.name}</p>
+              <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">{cineType?.tagline}</p>
             </div>
           </Link>
         </section>

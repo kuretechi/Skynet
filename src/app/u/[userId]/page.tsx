@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { pickVector } from "@/lib/dna/axes";
 import { getCineType } from "@/lib/dna/cinetype";
+import { TypeCode } from "@/components/type-code";
 import { typeInk } from "@/lib/theme";
 import { BottomNav } from "@/components/bottom-nav";
 import { CinemaCrystal } from "@/components/cinema-crystal";
@@ -48,9 +49,12 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
           {vector ? <CinemaCrystal vector={vector} size={220} accent={type?.accent ?? "#d8a657"} showLabels={false} /> : null}
           <h1 className="display text-2xl">{profile.name}</h1>
           {type ? (
-            <p className="label" style={{ color: typeInk(type.accent) }}>
-              {type.name} — {type.tagline}
-            </p>
+            <div className="flex flex-col items-center gap-1">
+              {vector ? <TypeCode vector={vector} accent={typeInk(type.accent)} /> : null}
+              <p className="label">
+                {type.name} — {type.tagline}
+              </p>
+            </div>
           ) : (
             <p className="label">NO DNA YET</p>
           )}

@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { pickVector } from "@/lib/dna/axes";
 import { getCineType } from "@/lib/dna/cinetype";
+import { cineCode } from "@/lib/dna/code";
 import { posterUrl } from "@/lib/movies/repository";
 import { typeInk } from "@/lib/theme";
 import { FollowButton, LikeButton, SpoilerText } from "@/components/community-buttons";
@@ -54,6 +56,11 @@ export default async function CommunityPage() {
                   <Link href={`/u/${other.id}`} className="flex flex-col gap-1">
                     <span className="text-sm">{other.name}</span>
                     <span className="label" style={{ color: type ? typeInk(type.accent) : "var(--muted)" }}>
+                      {other.dna ? (
+                        <span className="font-mono">
+                          {cineCode(pickVector(other.dna as unknown as Record<string, unknown>)).code}{" "}
+                        </span>
+                      ) : null}
                       {type?.name ?? "NO DNA YET"}
                     </span>
                     <span className="font-mono text-[10px] text-[var(--muted)]">
@@ -94,6 +101,11 @@ export default async function CommunityPage() {
                       </Link>
                       {type ? (
                         <span className="label" style={{ color: typeInk(type.accent) }}>
+                          {review.user.dna ? (
+                            <span className="font-mono">
+                              {cineCode(pickVector(review.user.dna as unknown as Record<string, unknown>)).code}{" "}
+                            </span>
+                          ) : null}
                           {type.name}
                         </span>
                       ) : null}

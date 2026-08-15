@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { Prisma, type Movie, type MovieFeature } from "@prisma/client";
 import { mapWithConcurrency } from "@/lib/async/pool";
+import { LruMap } from "@/lib/cache/process-cache";
 import { prisma } from "@/lib/db";
 import { type AxisVector, mixVectors, pickVector } from "@/lib/dna/axes";
 import { movieRowToDetail } from "@/lib/movies/repository";
@@ -14,14 +15,28 @@ export const FEATURE_VERSION = "v1";
 export const LLM_WEIGHT = 0.7;
 
 /**
+ * A feature row is written once per (movieId, featureVersion) and never updated,
+ * so once this process has seen one it never has to ask the database again.
+ */
+const featureCache = new LruMap<string, MovieFeature>(4000);
+
+const remember = (feature: MovieFeature): MovieFeature => {
+  featureCache.set(feature.movieId, feature);
+  return feature;
+};
+
+/**
  * Lazy, cached 8-axis feature generation: only movies a user actually touches
  * are analysed, and the result is stored per feature version.
  */
 export const getOrCreateMovieFeatures = cache(async (movie: Movie): Promise<MovieFeature> => {
+  const known = featureCache.get(movie.id);
+  if (known) return known;
+
   const cached = await prisma.movieFeature.findUnique({
     where: { movieId_featureVersion: { movieId: movie.id, featureVersion: FEATURE_VERSION } },
   });
-  if (cached) return cached;
+  if (cached) return remember(cached);
   return generateMovieFeatures(movie);
 });
 
@@ -34,7 +49,7 @@ async function generateMovieFeatures(movie: Movie): Promise<MovieFeature> {
 
   const where = { movieId_featureVersion: { movieId: movie.id, featureVersion: FEATURE_VERSION } };
   try {
-    return await prisma.movieFeature.upsert({
+    return remember(await prisma.movieFeature.upsert({
       where,
       update: {},
       create: {
@@ -50,13 +65,13 @@ async function generateMovieFeatures(movie: Movie): Promise<MovieFeature> {
           matchedKeywords: rules.matchedKeywords,
         }),
       },
-    });
+    }));
   } catch (error) {
     // Pages score many movies in parallel; on Postgres two of them can insert the
     // same (movieId, featureVersion) at once, and the loser gets P2002.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       const raced = await prisma.movieFeature.findUnique({ where });
-      if (raced) return raced;
+      if (raced) return remember(raced);
     }
     throw error;
   }
@@ -73,10 +88,19 @@ export async function getOrCreateMovieFeaturesMany(
   const features = new Map<string, MovieFeature>();
   if (byId.size === 0) return features;
 
-  const cached = await prisma.movieFeature.findMany({
-    where: { movieId: { in: [...byId.keys()] }, featureVersion: FEATURE_VERSION },
-  });
-  for (const feature of cached) features.set(feature.movieId, feature);
+  const unknownIds: string[] = [];
+  for (const id of byId.keys()) {
+    const known = featureCache.get(id);
+    if (known) features.set(id, known);
+    else unknownIds.push(id);
+  }
+
+  if (unknownIds.length > 0) {
+    const cached = await prisma.movieFeature.findMany({
+      where: { movieId: { in: unknownIds }, featureVersion: FEATURE_VERSION },
+    });
+    for (const feature of cached) features.set(feature.movieId, remember(feature));
+  }
 
   const missing = [...byId.values()].filter((movie) => !features.has(movie.id));
   const generated = await mapWithConcurrency(missing, 4, (movie) => generateMovieFeatures(movie));

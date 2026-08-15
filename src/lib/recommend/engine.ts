@@ -1,5 +1,6 @@
 import { cache } from "react";
-import type { Movie } from "@prisma/client";
+import type { Movie, MovieFeature } from "@prisma/client";
+import { TtlCache } from "@/lib/cache/process-cache";
 import { prisma } from "@/lib/db";
 import { type AxisVector, euclideanDistance, pickVector } from "@/lib/dna/axes";
 import {
@@ -123,8 +124,19 @@ export async function scoreMoviesForUser(
   );
 }
 
+/**
+ * The candidate pool is the same for everyone, so an instance builds it at most
+ * once a minute instead of once per navigation.
+ */
+const candidatePool = new TtlCache<number, Movie[]>(60_000);
+const similarityPool = new TtlCache<string, (MovieFeature & { movie: Movie })[]>(60_000);
+
 /** Candidate retrieval: provider popularity + everything already cached locally. */
-async function candidateMovies(limit: number): Promise<Movie[]> {
+function candidateMovies(limit: number): Promise<Movie[]> {
+  return candidatePool.get(limit, () => loadCandidateMovies(limit));
+}
+
+async function loadCandidateMovies(limit: number): Promise<Movie[]> {
   const provider = getMovieProvider();
   const summaries = await provider.popular().catch(() => []);
   const movies = await ensureMoviesByProviderIds(
@@ -164,14 +176,14 @@ export async function recommendForUser(
 export async function similarMovies(movie: Movie, limit = 6) {
   const [baseFeature, features] = await Promise.all([
     getOrCreateMovieFeatures(movie),
-    prisma.movieFeature.findMany({
-      where: { movieId: { not: movie.id } },
-      include: { movie: true },
-      take: 200,
-    }),
+    similarityPool.get("all", () =>
+      prisma.movieFeature.findMany({ include: { movie: true }, take: 201 }),
+    ),
   ]);
   const base = featureVector(baseFeature);
   return features
+    .filter((f) => f.movieId !== movie.id)
+    .slice(0, 200)
     .map((f) => ({ movie: f.movie, distance: euclideanDistance(base, featureVector(f)) }))
     .sort((a, b) => a.distance - b.distance)
     .slice(0, limit);

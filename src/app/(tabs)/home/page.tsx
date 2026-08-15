@@ -1,3 +1,4 @@
+import { cache, Suspense } from "react";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -11,41 +12,22 @@ import { ScoredMovieCarousel, SectionHeader } from "@/components/movie-list";
 import { PosterFrame, releaseYear } from "@/components/movie-visuals";
 import { posterUrl } from "@/lib/movies/repository";
 import { RatingInput } from "@/components/rating-input";
+import { CarouselSkeleton, HeroSkeleton, SectionSkeleton } from "@/components/skeletons";
 
 export const dynamic = "force-dynamic";
 
+/** Shared by the two sections it feeds, so the work happens once per request. */
+const homeRecommendations = cache((userId: string) => recommendForUser(userId, { limit: 7 }));
+
+/**
+ * The page shell only needs the signed-in user, so it is sent immediately and
+ * every section that has to talk to the database streams in behind its own
+ * Suspense boundary instead of holding up the first byte.
+ */
 export default async function HomePage() {
   const user = await requireUser();
-  const [recommendations, watchHistory, wantToWatch, shelfCount, friendReviews] = await Promise.all([
-    recommendForUser(user.id, { limit: 7 }),
-    prisma.watchHistory.findMany({
-      where: { userId: user.id },
-      include: { movie: true },
-      orderBy: { watchedAt: "desc" },
-      take: 8,
-    }),
-    prisma.shelfMovie.findMany({
-      where: { shelf: { userId: user.id, kind: "want_to_watch" } },
-      include: { movie: true },
-      orderBy: { addedAt: "desc" },
-      take: 6,
-    }),
-    prisma.shelfMovie.count({ where: { shelf: { userId: user.id } } }),
-    prisma.review.findMany({
-      where: { user: { followers: { some: { followerId: user.id } } } },
-      include: { user: true, movie: true },
-      orderBy: { createdAt: "desc" },
-      take: 3,
-    }),
-  ]);
-
-  const [tonight, ...rest] = recommendations;
   const dna = user.dna ? pickVector(user.dna as unknown as Record<string, unknown>) : null;
   const cineType = getCineType(user.dna?.cineTypeId);
-
-  const ctx = await getUserTasteContext(user.id);
-  const unrated = wantToWatch.filter((s) => !ctx.ratedMovieIds.has(s.movieId)).slice(0, 3);
-  const continueRating = await scoreMoviesForUser(unrated.map((s) => s.movie), ctx);
 
   return (
     <main className="flex flex-col gap-12 pt-10">
@@ -59,82 +41,21 @@ export default async function HomePage() {
         </Link>
       </header>
 
-      {tonight ? (
-        <section className="flex flex-col gap-5">
-          <SectionHeader title="Tonight For You" caption={`${tonight.score.match}% MATCH`} />
-          <Link href={`/movie/${tonight.movie.providerId}`} className="flex flex-col gap-5">
-            <div className="flex gap-5">
-              <PosterFrame
-                title={tonight.movie.title}
-                posterUrl={posterUrl(tonight.movie)}
-                year={releaseYear(tonight.movie.releaseDate)}
-                className="w-32 shrink-0"
-                sizes="128px"
-              />
-              <div className="flex flex-col justify-between">
-                <div>
-                  <h3 className="display text-3xl leading-tight">{tonight.movie.title}</h3>
-                  <p className="label mt-2">
-                    {releaseYear(tonight.movie.releaseDate)}
-                    {tonight.movie.director ? ` · ${tonight.movie.director}` : ""}
-                  </p>
-                </div>
-                <div className="mt-4">
-                  <span className="label">For You</span>
-                  <p className="display text-4xl text-[var(--accent)]">{tonight.score.predicted.toFixed(1)}</p>
-                </div>
-              </div>
-            </div>
-            <p className="text-sm leading-relaxed text-[var(--muted)]">{tonight.explanation}</p>
-          </Link>
-        </section>
-      ) : null}
+      <Suspense fallback={<HeroSkeleton />}>
+        <Tonight userId={user.id} />
+      </Suspense>
 
-      {continueRating.length > 0 ? (
-        <section className="flex flex-col gap-4">
-          <SectionHeader title="Continue Rating" caption="観たならスコアを" />
-          <ul className="flex flex-col divide-y divide-[var(--line)]">
-            {continueRating.map((item) => (
-              <li key={item.movie.id} className="flex items-center justify-between gap-4 py-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm">{item.movie.title}</p>
-                  <p className="label mt-1">{releaseYear(item.movie.releaseDate)}</p>
-                </div>
-                <RatingInput providerId={item.movie.providerId} compact />
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <Suspense fallback={null}>
+        <ContinueRating userId={user.id} />
+      </Suspense>
 
-      {rest.length > 0 ? (
-        <section className="flex flex-col gap-4">
-          <SectionHeader title="Because You Loved…" />
-          <ScoredMovieCarousel items={rest} />
-        </section>
-      ) : null}
+      <Suspense fallback={<CarouselSkeleton title="Because You Loved…" />}>
+        <BecauseYouLoved userId={user.id} />
+      </Suspense>
 
-      {watchHistory.length > 0 ? (
-        <section className="flex flex-col gap-4">
-          <SectionHeader title="Recently Watched" caption={`${shelfCount} items on your shelf`} />
-          <ul className="no-scrollbar -mx-5 flex gap-4 overflow-x-auto px-5">
-            {watchHistory.map((entry) => (
-              <li key={entry.id} className="w-24 shrink-0">
-                <Link href={`/movie/${entry.movie.providerId}`}>
-                  <PosterFrame
-                    title={entry.movie.title}
-                    posterUrl={posterUrl(entry.movie)}
-                    year={releaseYear(entry.movie.releaseDate)}
-                    className="w-24"
-                    sizes="96px"
-                  />
-                  <p className="mt-2 truncate text-[11px]">{entry.movie.title}</p>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <Suspense fallback={<CarouselSkeleton title="Recently Watched" />}>
+        <RecentlyWatched userId={user.id} />
+      </Suspense>
 
       {dna ? (
         <section className="flex flex-col gap-4">
@@ -154,24 +75,154 @@ export default async function HomePage() {
         </section>
       ) : null}
 
-      {friendReviews.length > 0 ? (
-        <section className="flex flex-col gap-4">
-          <SectionHeader title="Friends Activity" />
-          <ul className="flex flex-col divide-y divide-[var(--line)]">
-            {friendReviews.map((review) => (
-              <li key={review.id} className="py-3">
-                <p className="label">{review.user.name}</p>
-                <Link href={`/movie/${review.movie.providerId}`} className="text-sm">
-                  {review.movie.title}
-                </Link>
-                <p className="mt-1 line-clamp-2 text-xs text-[var(--muted)]">
-                  {review.spoiler ? "（ネタバレを含むレビュー）" : review.text}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <Suspense fallback={<SectionSkeleton title="Friends Activity" rows={2} />}>
+        <FriendsActivity userId={user.id} />
+      </Suspense>
     </main>
+  );
+}
+
+async function Tonight({ userId }: { userId: string }) {
+  const [tonight] = await homeRecommendations(userId);
+  if (!tonight) return null;
+
+  return (
+      <section className="flex flex-col gap-5">
+        <SectionHeader title="Tonight For You" caption={`${tonight.score.match}% MATCH`} />
+        <Link href={`/movie/${tonight.movie.providerId}`} className="flex flex-col gap-5">
+          <div className="flex gap-5">
+            <PosterFrame
+              title={tonight.movie.title}
+              posterUrl={posterUrl(tonight.movie)}
+              year={releaseYear(tonight.movie.releaseDate)}
+              className="w-32 shrink-0"
+              sizes="128px"
+            />
+            <div className="flex flex-col justify-between">
+              <div>
+                <h3 className="display text-3xl leading-tight">{tonight.movie.title}</h3>
+                <p className="label mt-2">
+                  {releaseYear(tonight.movie.releaseDate)}
+                  {tonight.movie.director ? ` · ${tonight.movie.director}` : ""}
+                </p>
+              </div>
+              <div className="mt-4">
+                <span className="label">For You</span>
+                <p className="display text-4xl text-[var(--accent)]">{tonight.score.predicted.toFixed(1)}</p>
+              </div>
+            </div>
+          </div>
+          <p className="text-sm leading-relaxed text-[var(--muted)]">{tonight.explanation}</p>
+        </Link>
+      </section>
+  );
+}
+
+async function BecauseYouLoved({ userId }: { userId: string }) {
+  const [, ...rest] = await homeRecommendations(userId);
+  if (rest.length === 0) return null;
+
+  return (
+    <section className="flex flex-col gap-4">
+      <SectionHeader title="Because You Loved…" />
+      <ScoredMovieCarousel items={rest} />
+    </section>
+  );
+}
+
+async function ContinueRating({ userId }: { userId: string }) {
+  const [wantToWatch, ctx] = await Promise.all([
+    prisma.shelfMovie.findMany({
+      where: { shelf: { userId, kind: "want_to_watch" } },
+      include: { movie: true },
+      orderBy: { addedAt: "desc" },
+      take: 6,
+    }),
+    getUserTasteContext(userId),
+  ]);
+
+  const unrated = wantToWatch.filter((s) => !ctx.ratedMovieIds.has(s.movieId)).slice(0, 3);
+  const continueRating = await scoreMoviesForUser(unrated.map((s) => s.movie), ctx);
+  if (continueRating.length === 0) return null;
+
+  return (
+    <section className="flex flex-col gap-4">
+      <SectionHeader title="Continue Rating" caption="観たならスコアを" />
+      <ul className="flex flex-col divide-y divide-[var(--line)]">
+        {continueRating.map((item) => (
+          <li key={item.movie.id} className="flex items-center justify-between gap-4 py-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm">{item.movie.title}</p>
+              <p className="label mt-1">{releaseYear(item.movie.releaseDate)}</p>
+            </div>
+            <RatingInput providerId={item.movie.providerId} compact />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+async function RecentlyWatched({ userId }: { userId: string }) {
+  const [watchHistory, shelfCount] = await Promise.all([
+    prisma.watchHistory.findMany({
+      where: { userId },
+      include: { movie: true },
+      orderBy: { watchedAt: "desc" },
+      take: 8,
+    }),
+    prisma.shelfMovie.count({ where: { shelf: { userId } } }),
+  ]);
+  if (watchHistory.length === 0) return null;
+
+  return (
+    <section className="flex flex-col gap-4">
+      <SectionHeader title="Recently Watched" caption={`${shelfCount} items on your shelf`} />
+      <ul className="no-scrollbar -mx-5 flex gap-4 overflow-x-auto px-5">
+        {watchHistory.map((entry) => (
+          <li key={entry.id} className="w-24 shrink-0">
+            <Link href={`/movie/${entry.movie.providerId}`}>
+              <PosterFrame
+                title={entry.movie.title}
+                posterUrl={posterUrl(entry.movie)}
+                year={releaseYear(entry.movie.releaseDate)}
+                className="w-24"
+                sizes="96px"
+              />
+              <p className="mt-2 truncate text-[11px]">{entry.movie.title}</p>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+async function FriendsActivity({ userId }: { userId: string }) {
+  const friendReviews = await prisma.review.findMany({
+    where: { user: { followers: { some: { followerId: userId } } } },
+    include: { user: true, movie: true },
+    orderBy: { createdAt: "desc" },
+    take: 3,
+  });
+  if (friendReviews.length === 0) return null;
+
+  return (
+    <section className="flex flex-col gap-4">
+      <SectionHeader title="Friends Activity" />
+      <ul className="flex flex-col divide-y divide-[var(--line)]">
+        {friendReviews.map((review) => (
+          <li key={review.id} className="py-3">
+            <p className="label">{review.user.name}</p>
+            <Link href={`/movie/${review.movie.providerId}`} className="text-sm">
+              {review.movie.title}
+            </Link>
+            <p className="mt-1 line-clamp-2 text-xs text-[var(--muted)]">
+              {review.spoiler ? "（ネタバレを含むレビュー）" : review.text}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

@@ -1,4 +1,6 @@
+import { cache } from "react";
 import type { Movie } from "@prisma/client";
+import { mapWithConcurrency } from "@/lib/async/pool";
 import { prisma } from "@/lib/db";
 import { getMovieProvider } from "./provider";
 import type { ProviderMovieDetail, ProviderMovieSummary } from "./types";
@@ -89,7 +91,7 @@ const upsertFromDetail = async (detail: ProviderMovieDetail): Promise<Movie> => 
  * Lazy movie database: a movie row is created the first time a user opens or
  * interacts with the title, never by bulk syncing the provider catalogue.
  */
-export async function ensureMovieByProviderId(providerId: string): Promise<Movie | null> {
+export const ensureMovieByProviderId = cache(async (providerId: string): Promise<Movie | null> => {
   const provider = getMovieProvider();
   const existing = await prisma.movie.findUnique({
     where: { provider_providerId: { provider: provider.name, providerId } },
@@ -100,9 +102,32 @@ export async function ensureMovieByProviderId(providerId: string): Promise<Movie
   const detail = await provider.detail(providerId);
   if (!detail) return existing;
   return upsertFromDetail(detail);
-}
+});
 
 export const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 14;
+
+/**
+ * Batch equivalent of {@link ensureMovieByProviderId}: one query for the whole
+ * cached set, provider round trips only for the misses, in input order.
+ */
+export async function ensureMoviesByProviderIds(providerIds: readonly string[]): Promise<Movie[]> {
+  if (providerIds.length === 0) return [];
+  const provider = getMovieProvider();
+  const existing = await prisma.movie.findMany({
+    where: { provider: provider.name, providerId: { in: [...new Set(providerIds)] } },
+  });
+  const cachedByProviderId = new Map(existing.map((movie) => [movie.providerId, movie]));
+
+  const movies = await mapWithConcurrency(providerIds, 6, async (providerId) => {
+    const cached = cachedByProviderId.get(providerId);
+    if (cached && Date.now() - cached.fetchedAt.getTime() <= CACHE_TTL_MS) return cached;
+    const detail = await provider.detail(providerId);
+    if (!detail) return cached ?? null;
+    return upsertFromDetail(detail);
+  });
+
+  return movies.filter((movie): movie is Movie => movie !== null);
+}
 
 export async function searchMovies(query: string): Promise<ProviderMovieSummary[]> {
   return getMovieProvider().search(query);

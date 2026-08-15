@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
@@ -43,11 +44,11 @@ export async function getSessionUserId(): Promise<string | null> {
   }
 }
 
-export async function getCurrentUser() {
+export const getCurrentUser = cache(async () => {
   const userId = await getSessionUserId();
   if (!userId) return null;
   return prisma.user.findUnique({ where: { id: userId }, include: { dna: true } });
-}
+});
 
 export async function requireUser() {
   const user = await getCurrentUser();
@@ -61,12 +62,21 @@ export const DEFAULT_SHELVES = [
   { name: "Want to Watch", kind: "want_to_watch", motif: "vhs" },
 ] as const;
 
-export async function ensureDefaultShelves(userId: string) {
-  for (const shelf of DEFAULT_SHELVES) {
-    await prisma.shelf.upsert({
-      where: { userId_name: { userId, name: shelf.name } },
-      update: {},
-      create: { userId, name: shelf.name, kind: shelf.kind, motif: shelf.motif },
-    });
-  }
-}
+export const ensureDefaultShelves = cache(async (userId: string) => {
+  const existing = await prisma.shelf.findMany({
+    where: { userId, name: { in: DEFAULT_SHELVES.map((s) => s.name) } },
+    select: { name: true },
+  });
+  const present = new Set(existing.map((shelf) => shelf.name));
+  const missing = DEFAULT_SHELVES.filter((shelf) => !present.has(shelf.name));
+
+  await Promise.all(
+    missing.map((shelf) =>
+      prisma.shelf.upsert({
+        where: { userId_name: { userId, name: shelf.name } },
+        update: {},
+        create: { userId, name: shelf.name, kind: shelf.kind, motif: shelf.motif },
+      }),
+    ),
+  );
+});

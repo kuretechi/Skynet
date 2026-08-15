@@ -4,9 +4,10 @@
  */
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { MOCK_CATALOG } from "../src/lib/movies/mock-catalog";
 import { ensureMovieByProviderId } from "../src/lib/movies/repository";
+import { getMovieProvider } from "../src/lib/movies/provider";
 import { refreshCinemaDna } from "../src/lib/dna/compute";
+import type { Movie } from "@prisma/client";
 
 const DEFAULT_SHELVES = [
   { name: "Watched", kind: "watched", motif: "archive_box" },
@@ -16,20 +17,40 @@ const DEFAULT_SHELVES = [
 
 const prisma = new PrismaClient();
 
-const DEMO_RATINGS: Record<string, number> = {
-  "m-arrival": 5,
-  "m-blade-runner-2049": 4.5,
-  "m-dune": 4,
-  "m-perfect-days": 5,
-  "m-in-the-mood-for-love": 4.5,
-  "m-parasite": 4,
-  "m-2001": 5,
-  "m-her": 4.5,
-  "m-whiplash": 3.5,
-  "m-mad-max-fury-road": 3,
-  "m-the-social-network": 3.5,
-  "m-interstellar": 4,
-};
+/**
+ * Titles are resolved through the active provider (TMDB or mock) instead of
+ * hard-coded provider ids, so the seed works whichever provider is configured.
+ */
+type SeedTitle = { title: string; year: number };
+
+const DEMO_RATINGS: { movie: SeedTitle; score: number }[] = [
+  { movie: { title: "Arrival", year: 2016 }, score: 5 },
+  { movie: { title: "Blade Runner 2049", year: 2017 }, score: 4.5 },
+  { movie: { title: "Dune", year: 2021 }, score: 4 },
+  { movie: { title: "Perfect Days", year: 2023 }, score: 5 },
+  { movie: { title: "In the Mood for Love", year: 2000 }, score: 4.5 },
+  { movie: { title: "Parasite", year: 2019 }, score: 4 },
+  { movie: { title: "2001: A Space Odyssey", year: 1968 }, score: 5 },
+  { movie: { title: "Her", year: 2013 }, score: 4.5 },
+  { movie: { title: "Whiplash", year: 2014 }, score: 3.5 },
+  { movie: { title: "Mad Max: Fury Road", year: 2015 }, score: 3 },
+  { movie: { title: "The Social Network", year: 2010 }, score: 3.5 },
+  { movie: { title: "Interstellar", year: 2014 }, score: 4 },
+];
+
+const WANT_TO_WATCH: SeedTitle[] = [
+  { title: "Past Lives", year: 2023 },
+  { title: "Drive My Car", year: 2021 },
+];
+
+async function resolveMovie({ title, year }: SeedTitle): Promise<Movie | null> {
+  const results = await getMovieProvider().search(title);
+  if (results.length === 0) return null;
+  const exact = results.find((r) => Number(r.releaseDate?.slice(0, 4)) === year);
+  const near = results.find((r) => Math.abs(Number(r.releaseDate?.slice(0, 4)) - year) <= 1);
+  const match = exact ?? near ?? results[0];
+  return ensureMovieByProviderId(match.providerId);
+}
 
 async function main() {
   const email = "demo@personal.cinema";
@@ -57,9 +78,12 @@ async function main() {
     where: { userId: user.id, kind: "want_to_watch" },
   });
 
-  for (const [providerId, score] of Object.entries(DEMO_RATINGS)) {
-    const movie = await ensureMovieByProviderId(providerId);
-    if (!movie) continue;
+  for (const { movie: seedTitle, score } of DEMO_RATINGS) {
+    const movie = await resolveMovie(seedTitle);
+    if (!movie) {
+      console.warn(`Skipped (not found by provider): ${seedTitle.title}`);
+      continue;
+    }
     await prisma.rating.upsert({
       where: { userId_movieId: { userId: user.id, movieId: movie.id } },
       update: { score },
@@ -77,8 +101,8 @@ async function main() {
     });
   }
 
-  for (const providerId of ["m-past-lives", "m-drive-my-car"]) {
-    const movie = await ensureMovieByProviderId(providerId);
+  for (const seedTitle of WANT_TO_WATCH) {
+    const movie = await resolveMovie(seedTitle);
     if (!movie) continue;
     await prisma.shelfMovie.upsert({
       where: { shelfId_movieId: { shelfId: wantToWatch.id, movieId: movie.id } },
@@ -87,7 +111,7 @@ async function main() {
     });
   }
 
-  const arrival = await ensureMovieByProviderId("m-arrival");
+  const arrival = await resolveMovie({ title: "Arrival", year: 2016 });
   if (arrival) {
     await prisma.review.upsert({
       where: { userId_movieId: { userId: user.id, movieId: arrival.id } },
@@ -102,7 +126,7 @@ async function main() {
   }
 
   await refreshCinemaDna(user.id);
-  console.log(`Seeded ${MOCK_CATALOG.length} catalog titles available, demo user: ${email} / cinema2024`);
+  console.log(`Seeded via provider "${getMovieProvider().name}", demo user: ${email} / cinema2024`);
 }
 
 main()

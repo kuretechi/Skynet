@@ -25,6 +25,38 @@ const GENRE_SIGNALS: Record<string, Partials> = {
   Western: { immerse: 0.14, depth: 0.08 },
 };
 
+/**
+ * Providers return genre names in the configured display language, so rule
+ * matching normalises them back to the canonical keys of GENRE_SIGNALS.
+ */
+const GENRE_ALIASES: Record<string, string> = {
+  アクション: "Action",
+  アドベンチャー: "Adventure",
+  アニメーション: "Animation",
+  コメディ: "Comedy",
+  犯罪: "Crime",
+  ドキュメンタリー: "Documentary",
+  ドラマ: "Drama",
+  ファミリー: "Family",
+  ファンタジー: "Fantasy",
+  歴史: "History",
+  履歴: "History",
+  ホラー: "Horror",
+  音楽: "Music",
+  ミステリー: "Mystery",
+  謎: "Mystery",
+  ロマンス: "Romance",
+  恋愛: "Romance",
+  サイエンスフィクション: "Science Fiction",
+  SF: "Science Fiction",
+  スリラー: "Thriller",
+  戦争: "War",
+  西部劇: "Western",
+  西洋: "Western",
+};
+
+export const canonicalGenre = (genre: string) => GENRE_ALIASES[genre] ?? genre;
+
 /** Keyword → axis contributions. Matching is substring based and case-insensitive. */
 const KEYWORD_SIGNALS: Record<string, Partials> = {
   philosophical: { think: 0.2, depth: 0.16 },
@@ -91,10 +123,11 @@ export function generateRuleFeatures(movie: ProviderMovieDetail): RuleSignals {
 
   const matchedGenres: string[] = [];
   for (const genre of movie.genres) {
-    const signal = GENRE_SIGNALS[genre];
+    const canonical = canonicalGenre(genre);
+    const signal = GENRE_SIGNALS[canonical];
     if (signal) {
       add(vector, signal);
-      matchedGenres.push(genre);
+      matchedGenres.push(canonical);
     }
   }
 

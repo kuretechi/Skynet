@@ -99,7 +99,7 @@ export default async function DnaPage({ searchParams }: { searchParams: Promise<
 
       {points.length > 0 ? (
         <section className="flex flex-col gap-4">
-          <SectionHeader title="Taste Universe" caption="観た作品＝実点 / 未見＝輪郭" />
+          <SectionHeader title="Taste Universe" caption="3D特徴空間 / 観た作品＝実点・未見＝輪郭 / ドラッグで回転" />
           <TasteUniverse points={points} />
         </section>
       ) : null}

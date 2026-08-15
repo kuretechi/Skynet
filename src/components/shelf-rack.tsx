@@ -16,9 +16,10 @@ export type ShelfItem = {
 
 const SPINE_WIDTH = 46;
 const CASE_HEIGHT = 224;
-const COVER_WIDTH = 150;
+const COVER_WIDTH = 132;
 const MAX_TILT = 46;
 const MAX_LIFT = 38;
+const PUSH = 52;
 const FOCUS_WINDOW = 0.32;
 const GAP = 3;
 const SLOT = SPINE_WIDTH + GAP;
@@ -56,13 +57,25 @@ export function ShelfRack({ items }: { items: ShelfItem[] }) {
       }
       focus = Math.max(0, Math.min(1, focus));
 
-      cases.current.forEach((node, index) => {
-        if (!node) return;
+      const openness = cases.current.map((_, index) => {
         const u = ((index + 0.5) * SLOT) / content;
-        const openness = Math.max(0, 1 - Math.abs(u - focus) / FOCUS_WINDOW);
-        const tilt = MAX_TILT * openness;
-        node.style.transform = `translateZ(${MAX_LIFT * openness}px) rotateY(${-tilt}deg)`;
-        node.style.zIndex = String(Math.round(openness * 100));
+        return Math.max(0, 1 - Math.abs(u - focus) / FOCUS_WINDOW);
+      });
+      const total = openness.reduce((sum, value) => sum + value, 0);
+
+      // Opened cases need room for their cover, so the rack parts around them:
+      // each case is pushed by however far its neighbours have swung open.
+      let before = 0;
+      cases.current.forEach((node, index) => {
+        const open = openness[index];
+        if (node) {
+          const after = total - before - open;
+          const shift = PUSH * (before - after) * 0.5;
+          node.style.transform =
+            `translateX(${shift}px) translateZ(${MAX_LIFT * open}px) rotateY(${-MAX_TILT * open}deg)`;
+          node.style.zIndex = String(Math.round(open * 100));
+        }
+        before += open;
       });
     };
 
@@ -106,16 +119,32 @@ export function ShelfRack({ items }: { items: ShelfItem[] }) {
             <Link
               href={`/movie/${item.providerId}`}
               aria-label={item.title}
-              className="spine-texture absolute inset-0 flex flex-col items-center justify-between rounded-[2px] border border-[var(--line)] py-3"
+              className="spine-texture absolute inset-0 flex flex-col items-center justify-between overflow-hidden rounded-[2px] border border-[var(--line)] py-3"
               style={{ background: spineColor(item.title), backfaceVisibility: "hidden" }}
             >
-              <span className="label" style={{ color: "rgba(236,233,228,0.5)", letterSpacing: "0.1em" }}>
+              {item.posterUrl ? (
+                <span aria-hidden className="pointer-events-none absolute inset-0">
+                  <Image
+                    src={item.posterUrl}
+                    alt=""
+                    fill
+                    sizes="46px"
+                    className="object-cover"
+                    style={{ filter: "blur(5px) saturate(0.7)", opacity: 0.55, transform: "scale(1.3)" }}
+                  />
+                  <span className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-black/70" />
+                </span>
+              ) : null}
+              <span
+                className="relative label"
+                style={{ color: "rgba(236,233,228,0.5)", letterSpacing: "0.1em" }}
+              >
                 {item.year?.slice(2) ?? ""}
               </span>
-              <span className="vertical-text max-h-40 overflow-hidden text-[11px] tracking-wide text-[var(--foreground)]">
+              <span className="relative vertical-text max-h-40 overflow-hidden text-[11px] tracking-wide text-[var(--foreground)]">
                 {item.title}
               </span>
-              <span className="text-[10px] text-[var(--accent-soft)]">
+              <span className="relative text-[10px] text-[var(--accent-soft)]">
                 {item.rating ? item.rating.toFixed(1) : "·"}
               </span>
             </Link>

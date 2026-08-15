@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { AxisVector } from "@/lib/dna/axes";
+import { AXES, AXIS_LABELS, type Axis, type AxisVector } from "@/lib/dna/axes";
 
 export type UniversePoint = {
   id: string;
@@ -16,38 +16,83 @@ export type UniversePoint = {
 type Vec3 = { x: number; y: number; z: number };
 
 /**
- * Taste Universe. One point = one movie, placed in a 3-axis feature space
- * carved out of the 8-axis DNA. The octahedron is the unit hull of that space:
- * its six vertices are the pure poles of each axis pair.
+ * Taste Universe. One point = one movie inside the octahedral hull of the
+ * 8-axis DNA: the solid has exactly eight faces, so every axis owns one of
+ * them and pulls a movie towards its face centre. Opposite faces carry
+ * opposing tastes (THINK/FEEL, SENSE/STORY, PULSE/DEPTH, EXPLORE/IMMERSE).
  */
 const SPREAD = 2.6;
-const clamp = (n: number) => Math.max(-1, Math.min(1, n * SPREAD));
 
-const project3 = (v: AxisVector): Vec3 => ({
-  x: clamp((v.think + v.explore + v.depth) / 3 - (v.feel + v.pulse + v.sense) / 3),
-  y: clamp((v.sense + v.immerse) / 2 - (v.story + v.think) / 2),
-  z: clamp((v.pulse + v.feel) / 2 - (v.depth + v.immerse) / 2),
+const FACE_SIGNS: Record<Axis, [1 | -1, 1 | -1, 1 | -1]> = {
+  think: [1, 1, 1],
+  feel: [-1, -1, -1],
+  sense: [-1, 1, 1],
+  story: [1, -1, -1],
+  pulse: [1, -1, 1],
+  depth: [-1, 1, -1],
+  explore: [1, 1, -1],
+  immerse: [-1, -1, 1],
+};
+
+// Centre of the octahedron face living in that octant: |x| + |y| + |z| = 1.
+const faceCentre = (axis: Axis): Vec3 => {
+  const [sx, sy, sz] = FACE_SIGNS[axis];
+  return { x: sx / 3, y: sy / 3, z: sz / 3 };
+};
+
+// Labels float just outside their own face so they read as face names
+// rather than as another cluster of points near the centre.
+const LABEL_LIFT = 1.7;
+
+const FACES = AXES.map((axis) => {
+  const centre = faceCentre(axis);
+  return {
+    label: AXIS_LABELS[axis].label,
+    at: { x: centre.x * LABEL_LIFT, y: centre.y * LABEL_LIFT, z: centre.z * LABEL_LIFT },
+  };
 });
 
-const POLES: { axis: keyof Vec3; sign: 1 | -1; label: string }[] = [
-  { axis: "x", sign: 1, label: "THINK" },
-  { axis: "x", sign: -1, label: "FEEL" },
-  { axis: "y", sign: 1, label: "SENSE" },
-  { axis: "y", sign: -1, label: "STORY" },
-  { axis: "z", sign: 1, label: "PULSE" },
-  { axis: "z", sign: -1, label: "DEPTH" },
+/**
+ * Each face pulls the movie by how far its axis stands out from the movie's
+ * own average — absolute intensity would bunch every title around the origin,
+ * where what distinguishes them is their profile, not their loudness. The
+ * result is scaled by SPREAD and capped on the hull (|x| + |y| + |z| = 1), so
+ * a point can touch its face but never pierce it.
+ */
+const project3 = (v: AxisVector): Vec3 => {
+  const average = AXES.reduce((sum, axis) => sum + v[axis], 0) / AXES.length;
+  let weight = 0;
+  const pull: Vec3 = { x: 0, y: 0, z: 0 };
+  for (const axis of AXES) {
+    const deviation = v[axis] - average;
+    const centre = faceCentre(axis);
+    weight += Math.abs(deviation);
+    pull.x += deviation * centre.x;
+    pull.y += deviation * centre.y;
+    pull.z += deviation * centre.z;
+  }
+  if (weight === 0) return { x: 0, y: 0, z: 0 };
+  const mean = { x: pull.x / weight, y: pull.y / weight, z: pull.z / weight };
+  const reach = Math.abs(mean.x) + Math.abs(mean.y) + Math.abs(mean.z);
+  const scale = reach * SPREAD > 1 ? 1 / reach : SPREAD;
+  return { x: mean.x * scale, y: mean.y * scale, z: mean.z * scale };
+};
+
+const CORNERS: Vec3[] = [
+  { x: 1, y: 0, z: 0 },
+  { x: -1, y: 0, z: 0 },
+  { x: 0, y: 1, z: 0 },
+  { x: 0, y: -1, z: 0 },
+  { x: 0, y: 0, z: 1 },
+  { x: 0, y: 0, z: -1 },
 ];
 
-const vertex = (pole: (typeof POLES)[number]): Vec3 => ({
-  x: pole.axis === "x" ? pole.sign : 0,
-  y: pole.axis === "y" ? pole.sign : 0,
-  z: pole.axis === "z" ? pole.sign : 0,
-});
-
 const EDGES: [number, number][] = [];
-for (let i = 0; i < POLES.length; i += 1) {
-  for (let j = i + 1; j < POLES.length; j += 1) {
-    if (POLES[i].axis !== POLES[j].axis) EDGES.push([i, j]);
+for (let i = 0; i < CORNERS.length; i += 1) {
+  for (let j = i + 1; j < CORNERS.length; j += 1) {
+    // Every pair but the two poles of the same axis is an edge.
+    if (CORNERS[i].x + CORNERS[j].x !== 0 || CORNERS[i].y + CORNERS[j].y !== 0 || CORNERS[i].z + CORNERS[j].z !== 0)
+      EDGES.push([i, j]);
   }
 }
 
@@ -140,7 +185,8 @@ export function TasteUniverse({ points, size = 320 }: { points: UniversePoint[];
     };
   };
 
-  const hull = POLES.map((pole) => place(vertex(pole)));
+  const hull = CORNERS.map(place);
+  const faces = FACES.map((face) => ({ ...face, at: place(face.at) }));
 
   const plotted = points
     .map((point) => ({ point, at: place(project3(point.vector)) }))
@@ -205,19 +251,19 @@ export function TasteUniverse({ points, size = 320 }: { points: UniversePoint[];
         />
       ))}
 
-      {POLES.map((pole, i) => (
+      {faces.map((face) => (
         <text
-          key={pole.label}
-          x={hull[i].x}
-          y={hull[i].y}
+          key={face.label}
+          x={face.at.x}
+          y={face.at.y}
           textAnchor="middle"
           dominantBaseline="middle"
           fontSize={7.5}
           letterSpacing={1.2}
           fill="var(--ink-40)"
-          opacity={0.35 + hull[i].depth * 0.4}
+          opacity={face.at.z > 0 ? 0.3 + face.at.depth * 0.45 : 0.18}
         >
-          {pole.label}
+          {face.label}
         </text>
       ))}
 

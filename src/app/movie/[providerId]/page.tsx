@@ -14,6 +14,7 @@ import {
 import { getUserTasteContext, scoreMovieForUser, similarMovies } from "@/lib/recommend/engine";
 import { sharedStrengths } from "@/lib/recommend/for-you";
 import { BottomNav } from "@/components/bottom-nav";
+import { CreateRoomButton } from "@/components/create-room-button";
 import { MovieActions } from "@/components/movie-actions";
 import { MovieHero } from "@/components/movie-hero";
 import { PosterFrame, ScoreBlock, releaseYear } from "@/components/movie-visuals";
@@ -110,6 +111,7 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ pr
             <SectionHeader title="Your Rating" caption="0.5 — 5.0" />
             <RatingInput providerId={movie.providerId} initialScore={rating?.score ?? null} />
             <MovieActions providerId={movie.providerId} initial={shelfState} customShelves={customShelves} />
+            <CreateRoomButton providerId={movie.providerId} movieTitle={movie.title} />
           </section>
 
           {movie.overview ? (

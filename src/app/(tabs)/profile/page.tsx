@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { pickVector } from "@/lib/dna/axes";
 import { getCineType } from "@/lib/dna/cinetype";
+import { TypeCode } from "@/components/type-code";
 import { signOutAction } from "@/lib/actions";
 import { getMovieProvider } from "@/lib/movies/provider";
 import { SectionHeader } from "@/components/movie-list";
@@ -20,6 +22,7 @@ export default async function ProfilePage() {
     prisma.follow.count({ where: { followerId: user.id } }),
   ]);
   const type = getCineType(user.dna?.cineTypeId);
+  const vector = user.dna ? pickVector(user.dna as unknown as Record<string, unknown>) : null;
 
   return (
     <main className="flex flex-col gap-10 pt-10">
@@ -27,10 +30,11 @@ export default async function ProfilePage() {
         <span className="label">Profile</span>
         <h1 className="display text-2xl">{user.name}</h1>
         <p className="text-xs text-[var(--muted)]">{user.email}</p>
-        {type ? (
-          <p className="label" style={{ color: typeInk(type.accent) }}>
-            {type.name}
-          </p>
+        {type && vector ? (
+          <div className="flex items-baseline gap-3">
+            <TypeCode vector={vector} accent={typeInk(type.accent)} size="sm" />
+            <span className="label">{type.name}</span>
+          </div>
         ) : null}
       </header>
 

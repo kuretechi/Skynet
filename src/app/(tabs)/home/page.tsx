@@ -88,7 +88,10 @@ async function Tonight({ userId }: { userId: string }) {
 
   return (
       <section className="flex flex-col gap-5">
-        <SectionHeader title="Tonight For You" caption={`${tonight.score.match}% MATCH`} />
+        <SectionHeader
+          title="Tonight For You"
+          caption={`${tonight.score.match}% MATCH · CONF ${Math.round(tonight.score.confidence * 100)}%`}
+        />
         <Link href={`/movie/${tonight.movie.providerId}`} prefetch={false} className="flex flex-col gap-5">
           <div className="flex gap-5">
             <PosterFrame

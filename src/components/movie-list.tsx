@@ -26,12 +26,15 @@ export function ScoredMovieRow({ item }: { item: ScoredMovie }) {
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm">{movie.title}</p>
         <p className="label mt-1">{releaseYear(movie.releaseDate)}{movie.director ? ` · ${movie.director}` : ""}</p>
-        <p className="mt-1 truncate text-[11px] text-[var(--muted)]">{item.explanation}</p>
+        <p className="mt-1 line-clamp-2 text-[11px] text-[var(--muted)]">{item.explanation}</p>
       </div>
-      <div className="flex flex-col items-end">
+      <div className="flex shrink-0 flex-col items-end">
         <span className="label">For You</span>
         <span className="display text-xl text-[var(--accent)]">{score.predicted.toFixed(1)}</span>
         <span className="font-mono text-[10px] text-[var(--muted)]">{score.match}% MATCH</span>
+        <span className="font-mono text-[10px] text-[var(--muted)]">
+          CONF {Math.round(score.confidence * 100)}%
+        </span>
       </div>
     </Link>
   );

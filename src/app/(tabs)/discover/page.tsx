@@ -45,6 +45,7 @@ async function moodRecommendations(
     moodPool.get("all", loadMoodPool),
   ]);
   const ranked = cached
+    .filter((f) => !ctx.ratedMovieIds.has(f.movieId))
     .map((f) => ({
       movie: f.movie,
       distance: euclideanDistance(target, {

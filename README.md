@@ -143,7 +143,20 @@ TMDB を使う場合は、リポジトリ設定の **Settings → Secrets and va
 
 `DATABASE_URL` が `postgres://` / `postgresql://` で始まると Prisma の datasource が自動で
 PostgreSQL に切り替わります（`scripts/sync-prisma-schema.mjs`）。ローカルはそのまま SQLite です。
-スキーマ反映は Vercel のビルド（`vercel-build`）で `prisma db push` が実行されます。
+スキーマ反映は Vercel のビルド（`vercel-build`）で `prisma migrate deploy` が実行されます
+（`scripts/db-migrate.mjs`）。既にテーブルがあってマイグレーション履歴が無いデータベースには、
+最初のマイグレーションを「適用済み」として記録してから続きだけを流します。
+
+スキーマを変えたときは、空の PostgreSQL を 1 つ用意してマイグレーションファイルを作ります
+（マイグレーションは PostgreSQL の SQL なので、SQLite のローカル DB からは作れません）:
+
+```bash
+docker run -d --name pgshadow -e POSTGRES_PASSWORD=pg -p 55432:5432 postgres:16
+SHADOW_DATABASE_URL=postgresql://postgres:pg@localhost:55432/postgres \
+  npm run db:migrate:new -- add_room_tags
+```
+
+ローカルの SQLite は今までどおり `npm run db:push` で反映します。
 デモデータが必要なら、接続文字列を `DATABASE_URL` に入れてローカルで `npm run db:seed` を実行してください。
 
 #### 運用で分かったこと（Supabase の接続の使い分け）
@@ -155,10 +168,10 @@ PostgreSQL に切り替わります（`scripts/sync-prisma-schema.mjs`）。ロ�
   レイテンシがそのまま 5 倍になる。アダプタなら 1 往復で済む
 - `connection_limit=1` は付けない（付いていても実行時に外す）。1 ページで 20 件前後の
   クエリを並列に投げるため、接続が 1 本だとプール待ちでレンダリングが止まる
-- `prisma db push` は同じホストの **5432**（session pooler）へ自動で振り替えられる
-  （`scripts/db-push.mjs`）。5432 は同時接続数が小さいのでアプリの実行時には使わない
+- スキーマ変更（`prisma migrate deploy` / `prisma db push`）は同じホストの **5432**
+  （session pooler）へ自動で振り替えられる。5432 は同時接続数が小さいので実行時には使わない
 - session pooler は 15 クライアントまでなので、アプリに負荷がかかっている最中の
-  デプロイは `EMAXCONNSESSION` で弾かれることがある。ビルド時の push は最大 6 回
+  デプロイは `EMAXCONNSESSION` で弾かれることがある。ビルド時のスキーマ反映は最大 6 回
   （合計約 2.5 分）リトライするので、通常はそのまま復帰する
 - Vercel の関数リージョンは `vercel.json` で `sin1`（Singapore）に固定している。
   DB のラウンドトリップが体感速度を決めるので、Supabase のリージョンを

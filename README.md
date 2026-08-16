@@ -203,9 +203,25 @@ PostgreSQL に切り替わります（`scripts/sync-prisma-schema.mjs`）。ロ�
 | `DATABASE_URL` | 未設定なら `.env` の SQLite（`file:./dev.db`）。Postgres URL を渡すと PostgreSQL に切り替わる |
 | `DB_POOL_MAX` | インスタンスあたりの Postgres 接続上限（既定 30）。同時アクセスが多いイベントでは増やす |
 | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ウォッチルームが Supabase Realtime を使わず 3 秒ポーリングで更新される |
+| `CRON_SECRET` | 日次メンテナンス（`/api/cron/refresh`）が 503 を返して動かない |
 
 TMDB を利用する場合は、TMDB の最新の利用条件とアトリビューション要件に従ってください。
 外部映画サイトのスクレイピングは行いません。
+
+## 日次メンテナンス
+
+`vercel.json` の cron が毎日 `/api/cron/refresh` を叩き、次の作業をまとめて行います（`Authorization: Bearer $CRON_SECRET` が必要）。
+
+- 公開中・人気の新作をカタログに取り込み、8 軸の特徴量を生成
+- 14 日以上前に取得した作品メタデータを再取得して特徴量を作り直す（評価・レビュー・棚はそのまま）
+- 閉じ忘れたウォッチルームを終了させ、90 日より古い終了済みルームを削除
+- 無操作が続くと停止する Postgres（Supabase 無料枠など）へ定期的に接続する
+
+Vercel 以外で動かす場合は、同じエンドポイントを任意のスケジューラから叩けば同じ結果になります。
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" https://<your-app>/api/cron/refresh
+```
 
 ## スクリプト
 

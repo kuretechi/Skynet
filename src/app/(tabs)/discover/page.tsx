@@ -20,7 +20,12 @@ export const dynamic = "force-dynamic";
 
 /** Feature rows for mood ranking are the same for everyone. */
 const moodPool = new TtlCache<string, Awaited<ReturnType<typeof loadMoodPool>>>(60_000);
-const loadMoodPool = () => prisma.movieFeature.findMany({ include: { movie: true }, take: 200 });
+const loadMoodPool = () =>
+  prisma.movieFeature.findMany({
+    include: { movie: true },
+    take: 200,
+    orderBy: { movie: { popularity: "desc" } },
+  });
 
 /** Shared by the three sections it feeds, so the work happens once per request. */
 const discoverRecommendations = cache((userId: string) =>

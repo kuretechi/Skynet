@@ -35,6 +35,35 @@ export type RoomState = {
 
 const REACTION_LIMIT = 500;
 
+/** A screening nobody closed is treated as over once it is this old. */
+const ROOM_MAX_AGE_MS = 1000 * 60 * 60 * 12;
+
+/** Ended rooms and their reactions are kept this long, then dropped. */
+const ROOM_RETENTION_MS = 1000 * 60 * 60 * 24 * 90;
+
+/**
+ * Hosts leave rooms open, so without this every abandoned screening stays in
+ * the Community list as if it were still live.
+ */
+export async function closeStaleRooms(): Promise<number> {
+  const { count } = await prisma.watchRoom.updateMany({
+    where: {
+      status: { in: ["scheduled", "live"] },
+      createdAt: { lt: new Date(Date.now() - ROOM_MAX_AGE_MS) },
+    },
+    data: { status: "ended", endedAt: new Date() },
+  });
+  return count;
+}
+
+/** Keeps room history bounded on a small database. */
+export async function purgeOldRooms(): Promise<number> {
+  const { count } = await prisma.watchRoom.deleteMany({
+    where: { status: "ended", endedAt: { lt: new Date(Date.now() - ROOM_RETENTION_MS) } },
+  });
+  return count;
+}
+
 export async function loadRoomState(roomId: string, userId: string): Promise<RoomState | null> {
   const room = await prisma.watchRoom.findUnique({
     where: { id: roomId },
@@ -123,6 +152,7 @@ export async function visibleRooms(userId: string) {
   return prisma.watchRoom.findMany({
     where: {
       status: { in: ["scheduled", "live"] },
+      createdAt: { gte: new Date(Date.now() - ROOM_MAX_AGE_MS) },
       OR: [
         { hostId: userId },
         { members: { some: { userId } } },

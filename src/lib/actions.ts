@@ -217,7 +217,10 @@ export async function postReviewAction(_prev: ActionState, formData: FormData): 
   const parsed = z
     .object({
       providerId: z.string().min(1),
-      text: z.string().min(1, "レビュー本文を入力してください").max(2000),
+      text: z
+        .string()
+        .min(1, "レビュー本文を入力してください")
+        .max(2000, "レビューは2000文字以内で入力してください"),
       spoiler: z.boolean(),
     })
     .safeParse({

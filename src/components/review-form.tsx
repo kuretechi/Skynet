@@ -43,6 +43,7 @@ export function ReviewForm({
         name="text"
         rows={4}
         defaultValue={initialText}
+        onChange={() => setState({})}
         placeholder="この映画が自分に何を残したか。"
         className="resize-none border border-[var(--line)] bg-[var(--surface-2)] p-3 text-sm outline-none focus:border-[var(--accent)]"
       />

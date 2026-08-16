@@ -4,69 +4,27 @@ import {
   featureVector,
   getOrCreateMovieFeaturesMany,
 } from "@/lib/features/generate";
-import { AXES, type AxisVector, clampVector } from "./axes";
-import { bestCineType } from "./cinetype";
+import { dnaFromSignals, type DnaComputation, type DnaSignal } from "./derive";
 
-/** Pull towards a neutral 0.5 prior so a handful of ratings cannot extremise the DNA. */
-const PRIOR_STRENGTH = 2.5;
+export { dnaFromSignals } from "./derive";
+export type { DnaComputation, DnaSignal } from "./derive";
 
-/** Ratings above this count as "liked", below as "disliked". */
-const NEUTRAL_RATING = 2.75;
-
-export type DnaComputation = {
-  vector: AxisVector;
-  ratingCount: number;
-  confidence: number;
-  cineTypeId: string | null;
-  cineTypeSimilarity: number;
-};
-
-/**
- * Cinema DNA = watch history + personal ratings + movie feature vectors.
- * Liked movies pull each axis towards the movie's value; disliked movies pull
- * it towards the opposite end, weighted by how strong the opinion was.
- */
 export async function computeCinemaDna(userId: string): Promise<DnaComputation> {
   const ratings = await prisma.rating.findMany({ where: { userId }, include: { movie: true } });
-
-  const numerator = AXES.reduce((acc, axis) => ({ ...acc, [axis]: 0 }), {} as AxisVector);
-  let weightSum = 0;
-
   const features = await getOrCreateMovieFeaturesMany(ratings.map((r) => r.movie));
 
+  const signals: DnaSignal[] = [];
   for (const rating of ratings) {
     const feature = features.get(rating.movieId);
     if (!feature) continue;
-    const vec = featureVector(feature);
-    const signed = rating.score - NEUTRAL_RATING;
-    const weight = Math.abs(signed);
-    if (weight === 0) continue;
-    for (const axis of AXES) {
-      numerator[axis] += weight * (signed > 0 ? vec[axis] : 1 - vec[axis]);
-    }
-    weightSum += weight;
+    signals.push({ vector: featureVector(feature), score: rating.score });
   }
 
-  const vector = clampVector(
-    AXES.reduce(
-      (acc, axis) => ({
-        ...acc,
-        [axis]: (numerator[axis] + PRIOR_STRENGTH * 0.5) / (weightSum + PRIOR_STRENGTH),
-      }),
-      {} as AxisVector,
-    ),
-  );
-
-  const ratingCount = ratings.length;
-  const confidence = Number(Math.min(1, ratingCount / 20).toFixed(2));
-  const match = bestCineType(vector);
-
+  // Ratings whose features are missing still count towards the rating count.
   return {
-    vector,
-    ratingCount,
-    confidence,
-    cineTypeId: ratingCount > 0 ? match.type.id : null,
-    cineTypeSimilarity: match.similarity,
+    ...dnaFromSignals(signals),
+    ratingCount: ratings.length,
+    confidence: Number(Math.min(1, ratings.length / 20).toFixed(2)),
   };
 }
 

@@ -121,8 +121,20 @@ const FLING_MAX = 0.012;
 const clampPitch = (pitch: number) => Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, pitch));
 const clampFling = (v: number) => Math.max(-FLING_MAX, Math.min(FLING_MAX, v));
 
-export function TasteUniverse({ points, size = 320 }: { points: UniversePoint[]; size?: number }) {
+export function TasteUniverse({
+  points,
+  size = 320,
+  /** Off for the signed-out demo, where the movie pages would bounce to login. */
+  linkMovies = true,
+}: {
+  points: UniversePoint[];
+  size?: number;
+  linkMovies?: boolean;
+}) {
   const router = useRouter();
+  const open = (providerId: string) => {
+    if (linkMovies) router.push(`/movie/${providerId}`);
+  };
   const center = size / 2;
   const [{ yaw, pitch }, setAngles] = useState({ yaw: 0.6, pitch: 0.32 });
   const [dragging, setDragging] = useState(false);
@@ -307,15 +319,15 @@ export function TasteUniverse({ points, size = 320 }: { points: UniversePoint[];
         return (
           <g
             key={point.id}
-            role="link"
-            tabIndex={0}
-            style={{ cursor: "pointer" }}
+            role={linkMovies ? "link" : "img"}
+            tabIndex={linkMovies ? 0 : -1}
+            style={{ cursor: linkMovies ? "pointer" : "inherit" }}
             onClick={() => {
               if (travelled.current > 6) return;
-              router.push(`/movie/${point.providerId}`);
+              open(point.providerId);
             }}
             onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") router.push(`/movie/${point.providerId}`);
+              if (event.key === "Enter" || event.key === " ") open(point.providerId);
             }}
             aria-label={point.title}
           >

@@ -1,5 +1,5 @@
 /* Minimal offline shell for the installable PWA. */
-const CACHE = "personal-cinema-v2";
+const CACHE = "skynet-v3";
 const OFFLINE_URLS = ["/offline"];
 
 /**

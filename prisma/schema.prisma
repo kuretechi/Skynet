@@ -1,4 +1,4 @@
-// Personal Cinema Platform — data model
+// スカイネット (SKYNET) — data model
 // First-party data (ratings, shelves, features, DNA) is kept separate from
 // external metadata cached from the movie provider (TMDB).
 

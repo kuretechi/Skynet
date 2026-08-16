@@ -6,7 +6,12 @@ import { Logo } from "@/components/logo";
 import { DemoFlow, type DemoMovie } from "@/components/demo-flow";
 import { releaseYear } from "@/components/movie-visuals";
 
-export const dynamic = "force-dynamic";
+/**
+ * The catalogue is the same for everyone and the whole walkthrough runs in the
+ * browser, so the page is prerendered and served from the cache: an audience
+ * arriving at once costs one query per revalidation window, not one per person.
+ */
+export const revalidate = 600;
 
 /** Sign-in free walkthrough: pick a few movies, get a CineType and a Taste Universe. */
 export default async function DemoPage() {

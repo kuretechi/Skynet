@@ -6,6 +6,15 @@
 観る → 評価する → Cinema DNA が更新される → CineType が育つ → 棚が増える → 推薦が良くなる、
 というループを一通り動く形にしています。
 
+## 公開 URL
+
+https://skynet-rose.vercel.app/
+
+<img src="public/release-qr.png" alt="https://skynet-rose.vercel.app/ の QR コード" width="200" />
+
+スマホで読み取ってそのまま開けます（画像は `public/release-qr.png`。アプリ内から
+`/release-qr.png` としても参照できます）。
+
 ## 実装済みの範囲
 
 - 認証（Cookie セッション）とオンボーディング（初期評価 → DNA 生成 → CineType 提示）

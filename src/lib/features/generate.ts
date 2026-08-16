@@ -2,7 +2,7 @@ import type { Movie, MovieFeature } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { type AxisVector, mixVectors, pickVector } from "@/lib/dna/axes";
 import { movieRowToDetail } from "@/lib/movies/repository";
-import { classifyWithLlm, isLlmConfigured } from "./llm";
+import { classifyWithDevin, isDevinConfigured } from "./devin";
 import { generateRuleFeatures } from "./rules";
 
 /** Bump when the generation logic changes; cached vectors are keyed by it. */
@@ -23,7 +23,7 @@ export async function getOrCreateMovieFeatures(movie: Movie): Promise<MovieFeatu
 
   const detail = movieRowToDetail(movie);
   const rules = generateRuleFeatures(detail);
-  const llm = isLlmConfigured() ? await classifyWithLlm(detail) : null;
+  const llm = isDevinConfigured() ? await classifyWithDevin(detail) : null;
   const vector: AxisVector = llm ? mixVectors(llm, rules.vector, LLM_WEIGHT) : rules.vector;
 
   return prisma.movieFeature.upsert({

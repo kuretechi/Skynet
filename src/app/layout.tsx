@@ -12,11 +12,11 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Personal Cinema — 映画人生をつくる場所",
+  title: "スカイネット — 映画人生をつくる場所",
   description:
-    "自分の映画棚を育てながら、映画の好みを Cinema DNA として可視化し、まだ観ていない映画の自分専用スコアを予測する Personal Cinema Platform。",
+    "自分の映画棚を育てながら、映画の好みを Cinema DNA として可視化し、まだ観ていない映画の自分専用スコアを予測する映画プラットフォーム、スカイネット。",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Personal Cinema" },
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "スカイネット" },
 };
 
 export const viewport: Viewport = {

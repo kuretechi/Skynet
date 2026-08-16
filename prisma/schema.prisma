@@ -64,6 +64,8 @@ model Movie {
   watchRooms      WatchRoom[]
 
   @@unique([provider, providerId])
+  @@index([popularity])
+  @@index([provider, fetchedAt])
 }
 
 /// External rating signals kept explicitly separate from the community score.
@@ -101,6 +103,7 @@ model MovieFeature {
   movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
 
   @@unique([movieId, featureVersion])
+  @@index([featureVersion, generatorType])
 }
 
 model Rating {
@@ -115,6 +118,7 @@ model Rating {
   movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
 
   @@unique([userId, movieId])
+  @@index([movieId])
 }
 
 model WatchHistory {
@@ -153,6 +157,7 @@ model ShelfMovie {
   movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
 
   @@unique([shelfId, movieId])
+  @@index([movieId])
 }
 
 /// User taste vector on the same 8 axes + the derived CineType.
@@ -190,6 +195,8 @@ model Review {
   likes ReviewLike[]
 
   @@unique([userId, movieId])
+  @@index([movieId, createdAt])
+  @@index([createdAt])
 }
 
 model ReviewLike {

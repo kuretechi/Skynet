@@ -9,6 +9,7 @@ import {
   scoreMoviesForUser,
   type ScoredMovie,
 } from "@/lib/recommend/engine";
+import { FEATURE_VERSION } from "@/lib/features/generate";
 import { getMood, MOODS } from "@/lib/recommend/moods";
 import { prisma } from "@/lib/db";
 import { MovieSearch } from "@/components/movie-search";
@@ -22,6 +23,7 @@ export const dynamic = "force-dynamic";
 const moodPool = new TtlCache<string, Awaited<ReturnType<typeof loadMoodPool>>>(60_000);
 const loadMoodPool = () =>
   prisma.movieFeature.findMany({
+    where: { featureVersion: FEATURE_VERSION },
     include: { movie: true },
     take: 200,
     orderBy: { movie: { popularity: "desc" } },

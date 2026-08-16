@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { AXIS_LABELS, pickVector, type Axis } from "@/lib/dna/axes";
 import { getCineType, rankCineTypes, topAxes } from "@/lib/dna/cinetype";
-import { featureVector } from "@/lib/features/generate";
+import { FEATURE_VERSION, featureVector } from "@/lib/features/generate";
 import { typeInk } from "@/lib/theme";
 import { CinemaCrystal, DnaBars } from "@/components/cinema-crystal";
 import { TypeCode, TypeCodeMeters } from "@/components/type-code";
@@ -41,6 +41,7 @@ export default async function DnaPage({ searchParams }: { searchParams: Promise<
   const { code } = cineCode(vector);
 
   const features = await prisma.movieFeature.findMany({
+    where: { featureVersion: FEATURE_VERSION },
     include: { movie: true },
     take: 120,
     orderBy: { generatedAt: "desc" },

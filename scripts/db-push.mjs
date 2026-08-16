@@ -6,6 +6,9 @@ import { schemaDatabaseUrl } from "./database-url.mjs";
  * the running app plus any concurrent deploy can hold all of them, so a build
  * that pushes the schema loses the race and fails the whole deploy. The push is
  * idempotent, so retry it for a while before giving up.
+ *
+ * Builds are non-interactive, so data loss warnings have to be accepted up
+ * front or prisma aborts instead of prompting.
  */
 const ATTEMPTS = 6;
 const BACKOFF_MS = 10_000;
@@ -17,10 +20,14 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 function push() {
   return new Promise((resolve) => {
     let output = "";
-    const child = spawn("npx", ["prisma", "db", "push", "--skip-generate"], {
-      env: { ...process.env, DATABASE_URL: url },
-      stdio: ["inherit", "pipe", "pipe"],
-    });
+    const child = spawn(
+      "npx",
+      ["prisma", "db", "push", "--skip-generate", "--accept-data-loss"],
+      {
+        env: { ...process.env, DATABASE_URL: url },
+        stdio: ["inherit", "pipe", "pipe"],
+      },
+    );
     const capture = (stream, sink) =>
       stream.on("data", (chunk) => {
         output += chunk;

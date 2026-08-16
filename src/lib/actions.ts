@@ -91,15 +91,20 @@ const removeFromShelfByKind = async (userId: string, movieId: string, kind: stri
   await prisma.shelfMovie.deleteMany({ where: { shelfId: shelf.id, movieId } });
 };
 
+/** The star widget only emits half steps between 0.5 and 5; anything else is a forged payload. */
+const ratingScore = z.number().min(0.5).max(5).multipleOf(0.5);
+
 export async function rateMovieAction(providerId: string, score: number) {
   const user = await requireUserOrThrow();
+  const parsedScore = ratingScore.safeParse(score);
+  if (!parsedScore.success) return { error: "評価の値が不正です" };
   const movie = await ensureMovieByProviderId(providerId);
   if (!movie) return { error: "映画が見つかりませんでした" };
 
   await prisma.rating.upsert({
     where: { userId_movieId: { userId: user.id, movieId: movie.id } },
-    update: { score },
-    create: { userId: user.id, movieId: movie.id, score },
+    update: { score: parsedScore.data },
+    create: { userId: user.id, movieId: movie.id, score: parsedScore.data },
   });
   await prisma.watchHistory.upsert({
     where: { userId_movieId: { userId: user.id, movieId: movie.id } },
@@ -226,6 +231,8 @@ export async function postReviewAction(_prev: ActionState, formData: FormData): 
 
 export async function toggleReviewLikeAction(reviewId: string) {
   const user = await requireUserOrThrow();
+  const review = await prisma.review.findUnique({ where: { id: reviewId }, select: { id: true } });
+  if (!review) return { error: "レビューが見つかりませんでした" };
   const existing = await prisma.reviewLike.findUnique({
     where: { reviewId_userId: { reviewId, userId: user.id } },
   });
@@ -238,6 +245,8 @@ export async function toggleReviewLikeAction(reviewId: string) {
 export async function toggleFollowAction(targetUserId: string) {
   const user = await requireUserOrThrow();
   if (user.id === targetUserId) return { error: "自分はフォローできません" };
+  const target = await prisma.user.findUnique({ where: { id: targetUserId }, select: { id: true } });
+  if (!target) return { error: "ユーザーが見つかりませんでした" };
   const existing = await prisma.follow.findUnique({
     where: { followerId_followingId: { followerId: user.id, followingId: targetUserId } },
   });

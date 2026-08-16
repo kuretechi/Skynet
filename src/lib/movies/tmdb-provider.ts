@@ -50,6 +50,19 @@ export class TmdbMovieProvider implements MovieProvider {
     return (await res.json()) as T;
   }
 
+  /**
+   * TMDB being unreachable, rate limited or misconfigured must not take a page
+   * down: callers degrade to whatever is already cached in our own database.
+   */
+  private async tryRequest<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T | null> {
+    try {
+      return await this.request<T>(path, params);
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
+  }
+
   private toSummary(m: TmdbMovie, genreNames?: Map<number, string>): ProviderMovieSummary {
     return {
       providerId: String(m.id),
@@ -72,21 +85,24 @@ export class TmdbMovieProvider implements MovieProvider {
 
   private async genres(): Promise<Map<number, string>> {
     if (this.genreCache) return this.genreCache;
-    const data = await this.request<{ genres: { id: number; name: string }[] }>("/genre/movie/list");
+    const data = await this.tryRequest<{ genres: { id: number; name: string }[] }>("/genre/movie/list");
+    if (!data) return new Map();
     this.genreCache = new Map(data.genres.map((g) => [g.id, g.name]));
     return this.genreCache;
   }
 
   async search(query: string, page = 1): Promise<ProviderMovieSummary[]> {
     const [data, genreNames] = await Promise.all([
-      this.request<{ results: TmdbMovie[] }>("/search/movie", { query, page, include_adult: "false" }),
+      this.tryRequest<{ results: TmdbMovie[] }>("/search/movie", { query, page, include_adult: "false" }),
       this.genres(),
     ]);
-    return data.results.map((m) => this.toSummary(m, genreNames));
+    return (data?.results ?? []).map((m) => this.toSummary(m, genreNames));
   }
 
   async detail(providerId: string): Promise<ProviderMovieDetail | null> {
-    const m = await this.request<TmdbMovie>(`/movie/${providerId}`, {
+    // TMDB ids are numeric, so anything else is a bad URL rather than a lookup.
+    if (!/^\d+$/.test(providerId)) return null;
+    const m = await this.tryRequest<TmdbMovie>(`/movie/${providerId}`, {
       append_to_response: "credits,keywords",
     });
     if (!m?.id) return null;
@@ -105,7 +121,7 @@ export class TmdbMovieProvider implements MovieProvider {
   async discover(query: DiscoverQuery): Promise<ProviderMovieSummary[]> {
     const genreNames = await this.genres();
     const byName = new Map([...genreNames].map(([id, name]) => [name, id]));
-    const data = await this.request<{ results: TmdbMovie[] }>("/discover/movie", {
+    const data = await this.tryRequest<{ results: TmdbMovie[] }>("/discover/movie", {
       page: query.page ?? 1,
       region: this.region,
       sort_by: "popularity.desc",
@@ -115,15 +131,15 @@ export class TmdbMovieProvider implements MovieProvider {
       with_origin_country: query.country,
       "with_runtime.lte": query.runtimeMax,
     });
-    return data.results.map((m) => this.toSummary(m, genreNames));
+    return (data?.results ?? []).map((m) => this.toSummary(m, genreNames));
   }
 
   async popular(page = 1): Promise<ProviderMovieSummary[]> {
     const [data, genreNames] = await Promise.all([
-      this.request<{ results: TmdbMovie[] }>("/movie/popular", { page, region: this.region }),
+      this.tryRequest<{ results: TmdbMovie[] }>("/movie/popular", { page, region: this.region }),
       this.genres(),
     ]);
-    return data.results.map((m) => this.toSummary(m, genreNames));
+    return (data?.results ?? []).map((m) => this.toSummary(m, genreNames));
   }
 
   imageUrl(path: string | null | undefined, size: "poster" | "backdrop"): string | null {

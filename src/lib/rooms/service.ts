@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { memberPositionMs } from "@/lib/rooms/clock";
 
 export type RoomReactionView = {
   id: string;
@@ -28,9 +29,10 @@ export type RoomState = {
   offsetMs: number;
   members: RoomMemberView[];
   reactions: RoomReactionView[];
+  ahead: number;
+  nextAheadAtMs: number | null;
 };
 
-/** Reactions are handed over whole and revealed by each client's own clock. */
 const REACTION_LIMIT = 500;
 
 export async function loadRoomState(roomId: string, userId: string): Promise<RoomState | null> {
@@ -48,6 +50,20 @@ export async function loadRoomState(roomId: string, userId: string): Promise<Roo
   if (!room) return null;
 
   const me = room.members.find((member) => member.userId === userId);
+  const serverNow = Date.now();
+
+  // Spoiler safety is enforced here rather than in the client: a reaction to a
+  // scene the viewer has not reached yet never leaves the server, so it is not
+  // in the HTML, the RSC payload or this API's JSON. `nextAheadAtMs` lets the
+  // client come back for the next one exactly when its clock reaches it.
+  const cutoff =
+    room.status === "ended"
+      ? Number.POSITIVE_INFINITY
+      : memberPositionMs(room.startedAt, me?.offsetMs ?? 0, serverNow);
+  const visible = room.reactions.filter((reaction) => reaction.atMs <= cutoff);
+  const hidden = room.reactions.filter((reaction) => reaction.atMs > cutoff);
+  const ahead = hidden.length;
+  const nextAheadAtMs = hidden.length > 0 ? Math.min(...hidden.map((reaction) => reaction.atMs)) : null;
 
   return {
     id: room.id,
@@ -56,7 +72,7 @@ export async function loadRoomState(roomId: string, userId: string): Promise<Roo
     startedAt: room.startedAt?.toISOString() ?? null,
     endedAt: room.endedAt?.toISOString() ?? null,
     hostId: room.hostId,
-    serverNow: Date.now(),
+    serverNow,
     joined: Boolean(me),
     offsetMs: me?.offsetMs ?? 0,
     members: room.members.map((member) => ({
@@ -65,7 +81,9 @@ export async function loadRoomState(roomId: string, userId: string): Promise<Roo
       offsetMs: member.offsetMs,
       isHost: member.userId === room.hostId,
     })),
-    reactions: room.reactions.map((reaction) => ({
+    ahead,
+    nextAheadAtMs,
+    reactions: visible.map((reaction) => ({
       id: reaction.id,
       userId: reaction.userId,
       userName: reaction.user.name,

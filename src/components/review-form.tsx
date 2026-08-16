@@ -1,15 +1,26 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { postReviewAction, type ActionState } from "@/lib/actions";
 
-const initialState: ActionState = {};
-
 export function ReviewForm({ providerId, initialText, initialSpoiler }: { providerId: string; initialText?: string; initialSpoiler?: boolean }) {
-  const [state, action, pending] = useActionState(postReviewAction, initialState);
+  const router = useRouter();
+  const [state, setState] = useState<ActionState>({});
+  const [pending, setPending] = useState(false);
+
+  // The button clears as soon as the write returns; the refreshed review list
+  // streams in afterwards instead of holding the form hostage to it.
+  const submit = async (formData: FormData) => {
+    setPending(true);
+    const result = await postReviewAction({}, formData);
+    setPending(false);
+    setState(result);
+    if (result.ok) router.refresh();
+  };
 
   return (
-    <form action={action} className="flex flex-col gap-3 border border-[var(--line)] bg-[var(--surface)] p-4">
+    <form action={submit} className="flex flex-col gap-3 border border-[var(--line)] bg-[var(--surface)] p-4">
       <input type="hidden" name="providerId" value={providerId} />
       <label className="label" htmlFor="review-text">
         Write Review

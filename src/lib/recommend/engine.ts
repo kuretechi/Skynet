@@ -144,10 +144,19 @@ function candidateMovies(limit: number): Promise<Movie[]> {
 
 async function loadCandidateMovies(limit: number): Promise<Movie[]> {
   const provider = getMovieProvider();
-  const summaries = await provider.popular().catch(() => []);
-  const movies = await ensureMoviesByProviderIds(
-    summaries.slice(0, limit).map((summary) => summary.providerId),
-  );
+  // Popularity alone lags behind release schedules, so recent titles are mixed
+  // in: without this a film only becomes recommendable once it trends.
+  const [popular, nowPlaying] = await Promise.all([
+    provider.popular().catch(() => []),
+    provider.nowPlaying().catch(() => []),
+  ]);
+  const interleaved: string[] = [];
+  for (let i = 0; i < Math.max(popular.length, nowPlaying.length); i += 1) {
+    if (popular[i]) interleaved.push(popular[i].providerId);
+    if (nowPlaying[i]) interleaved.push(nowPlaying[i].providerId);
+  }
+  const providerIds = [...new Set(interleaved)];
+  const movies = await ensureMoviesByProviderIds(providerIds.slice(0, limit));
   if (movies.length < limit) {
     const cached = await prisma.movie.findMany({ take: limit, orderBy: { popularity: "desc" } });
     for (const movie of cached) if (!movies.some((m) => m.id === movie.id)) movies.push(movie);
@@ -183,7 +192,11 @@ export async function similarMovies(movie: Movie, limit = 6) {
   const [baseFeature, features] = await Promise.all([
     getOrCreateMovieFeatures(movie),
     similarityPool.get("all", () =>
-      prisma.movieFeature.findMany({ include: { movie: true }, take: 201 }),
+      prisma.movieFeature.findMany({
+        include: { movie: true },
+        take: 201,
+        orderBy: { movie: { popularity: "desc" } },
+      }),
     ),
   ]);
   const base = featureVector(baseFeature);

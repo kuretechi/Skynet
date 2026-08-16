@@ -15,7 +15,7 @@ export function SectionHeader({ title, caption }: { title: string; caption?: str
 export function ScoredMovieRow({ item }: { item: ScoredMovie }) {
   const { movie, score } = item;
   return (
-    <Link href={`/movie/${movie.providerId}`} className="flex items-center gap-4 py-3">
+    <Link href={`/movie/${movie.providerId}`} prefetch={false} className="flex items-center gap-4 py-3">
       <PosterFrame
         title={movie.title}
         posterUrl={posterUrl(movie)}
@@ -45,7 +45,7 @@ export function ScoredMovieCarousel({ items }: { items: ScoredMovie[] }) {
     <ul className="no-scrollbar -mx-5 flex gap-4 overflow-x-auto px-5 py-1">
       {items.map((item) => (
         <li key={item.movie.id} className="w-32 shrink-0">
-          <Link href={`/movie/${item.movie.providerId}`}>
+          <Link href={`/movie/${item.movie.providerId}`} prefetch={false}>
             <PosterFrame
               title={item.movie.title}
               posterUrl={posterUrl(item.movie)}

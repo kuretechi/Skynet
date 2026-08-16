@@ -17,6 +17,18 @@ import { ensureMovieByProviderId } from "@/lib/movies/repository";
 
 export type ActionState = { error?: string; ok?: boolean };
 
+export type ReviewCard = {
+  id: string;
+  userId: string;
+  userName: string;
+  text: string;
+  spoiler: boolean;
+  likeCount: number;
+  liked: boolean;
+};
+
+export type ReviewActionState = ActionState & { review?: ReviewCard };
+
 const credentials = z.object({
   email: z.string().email("メールアドレスの形式が正しくありません"),
   password: z.string().min(8, "パスワードは8文字以上にしてください"),
@@ -91,15 +103,20 @@ const removeFromShelfByKind = async (userId: string, movieId: string, kind: stri
   await prisma.shelfMovie.deleteMany({ where: { shelfId: shelf.id, movieId } });
 };
 
+/** The star widget only emits half steps between 0.5 and 5; anything else is a forged payload. */
+const ratingScore = z.number().min(0.5).max(5).multipleOf(0.5);
+
 export async function rateMovieAction(providerId: string, score: number) {
   const user = await requireUserOrThrow();
+  const parsedScore = ratingScore.safeParse(score);
+  if (!parsedScore.success) return { error: "評価の値が不正です" };
   const movie = await ensureMovieByProviderId(providerId);
   if (!movie) return { error: "映画が見つかりませんでした" };
 
   await prisma.rating.upsert({
     where: { userId_movieId: { userId: user.id, movieId: movie.id } },
-    update: { score },
-    create: { userId: user.id, movieId: movie.id, score },
+    update: { score: parsedScore.data },
+    create: { userId: user.id, movieId: movie.id, score: parsedScore.data },
   });
   await prisma.watchHistory.upsert({
     where: { userId_movieId: { userId: user.id, movieId: movie.id } },
@@ -195,12 +212,15 @@ export async function createShelfAction(_prev: ActionState, formData: FormData):
   return { ok: true };
 }
 
-export async function postReviewAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+export async function postReviewAction(_prev: ActionState, formData: FormData): Promise<ReviewActionState> {
   const user = await requireUserOrThrow();
   const parsed = z
     .object({
       providerId: z.string().min(1),
-      text: z.string().min(1, "レビュー本文を入力してください").max(2000),
+      text: z
+        .string()
+        .min(1, "レビュー本文を入力してください")
+        .max(2000, "レビューは2000文字以内で入力してください"),
       spoiler: z.boolean(),
     })
     .safeParse({
@@ -213,19 +233,33 @@ export async function postReviewAction(_prev: ActionState, formData: FormData): 
   const movie = await ensureMovieByProviderId(parsed.data.providerId);
   if (!movie) return { error: "映画が見つかりませんでした" };
 
-  await prisma.review.upsert({
+  const review = await prisma.review.upsert({
     where: { userId_movieId: { userId: user.id, movieId: movie.id } },
     update: { text: parsed.data.text, spoiler: parsed.data.spoiler },
     create: { userId: user.id, movieId: movie.id, text: parsed.data.text, spoiler: parsed.data.spoiler },
+    include: { likes: true },
   });
 
   revalidatePath(`/movie/${parsed.data.providerId}`);
   revalidatePath("/community");
-  return { ok: true };
+  return {
+    ok: true,
+    review: {
+      id: review.id,
+      userId: user.id,
+      userName: user.name,
+      text: review.text,
+      spoiler: review.spoiler,
+      likeCount: review.likes.length,
+      liked: review.likes.some((like) => like.userId === user.id),
+    },
+  };
 }
 
 export async function toggleReviewLikeAction(reviewId: string) {
   const user = await requireUserOrThrow();
+  const review = await prisma.review.findUnique({ where: { id: reviewId }, select: { id: true } });
+  if (!review) return { error: "レビューが見つかりませんでした" };
   const existing = await prisma.reviewLike.findUnique({
     where: { reviewId_userId: { reviewId, userId: user.id } },
   });
@@ -238,6 +272,8 @@ export async function toggleReviewLikeAction(reviewId: string) {
 export async function toggleFollowAction(targetUserId: string) {
   const user = await requireUserOrThrow();
   if (user.id === targetUserId) return { error: "自分はフォローできません" };
+  const target = await prisma.user.findUnique({ where: { id: targetUserId }, select: { id: true } });
+  if (!target) return { error: "ユーザーが見つかりませんでした" };
   const existing = await prisma.follow.findUnique({
     where: { followerId_followingId: { followerId: user.id, followingId: targetUserId } },
   });

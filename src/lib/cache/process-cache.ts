@@ -18,6 +18,10 @@ export class LruMap<K, V> {
     return value;
   }
 
+  delete(key: K): void {
+    this.entries.delete(key);
+  }
+
   set(key: K, value: V): void {
     this.entries.delete(key);
     this.entries.set(key, value);

@@ -1,11 +1,11 @@
 {
-  "name": "Personal Cinema",
+  "name": "Skynet",
   "image": "mcr.microsoft.com/devcontainers/typescript-node:1-20-bookworm",
   "postCreateCommand": "bash .devcontainer/setup.sh",
   "forwardPorts": [3000],
   "portsAttributes": {
     "3000": {
-      "label": "Personal Cinema",
+      "label": "Skynet",
       "onAutoForward": "openPreview"
     }
   },

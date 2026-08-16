@@ -182,11 +182,14 @@ export function DemoFlow({ movies }: { movies: DemoMovie[] }) {
         })}
       </ul>
 
+      {/* Floats over the poster grid: the disabled state dims the border and
+          text rather than the whole button, which would let posters show
+          through the message. */}
       <button
         type="button"
         onClick={() => setRevealed(true)}
         disabled={picked.length < MIN_PICKS}
-        className="label sticky bottom-6 border border-[var(--accent)] bg-[var(--background)] px-4 py-4 text-[var(--accent)] disabled:opacity-40"
+        className="label sticky bottom-6 border border-[var(--accent)] bg-[var(--background)] px-4 py-4 text-[var(--accent)] disabled:border-[var(--line)] disabled:text-[var(--muted)]"
       >
         {picked.length < MIN_PICKS ? `あと ${MIN_PICKS - picked.length} 本選んでください` : "SHOW MY CINETYPE"}
       </button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   endRoomAction,
@@ -36,6 +36,7 @@ export function WatchRoomView({
   const { state, refresh } = useRoomState(initial.id, initial);
   const [now, setNow] = useState(() => Date.now());
   const [comment, setComment] = useState("");
+  const [positionInput, setPositionInput] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const feedRef = useRef<HTMLUListElement>(null);
@@ -48,13 +49,22 @@ export function WatchRoomView({
   const isHost = state.hostId === currentUserId;
   const position = memberPositionMs(state.startedAt, state.offsetMs, now);
 
-  // Reactions are held client-side and revealed as the member's own clock
-  // reaches them, so nobody reads a reaction to a scene they have not hit yet.
-  const { revealed, ahead } = useMemo(() => {
-    const cutoff = state.status === "ended" ? Number.POSITIVE_INFINITY : position;
-    const visible = state.reactions.filter((reaction) => reaction.atMs <= cutoff);
-    return { revealed: visible, ahead: state.reactions.length - visible.length };
-  }, [position, state.reactions, state.status]);
+  // The server only sends reactions this member has already reached, so the
+  // feed is whatever arrived. When something is still ahead, come back for it
+  // the moment our own clock passes its timestamp.
+  const revealed = state.reactions;
+  const ahead = state.ahead;
+  const nextAheadAtMs = state.nextAheadAtMs;
+
+  useEffect(() => {
+    if (nextAheadAtMs === null) return;
+    const delay = Math.max(0, nextAheadAtMs - position) + 250;
+    const timer = window.setTimeout(() => void refresh(), delay);
+    return () => window.clearTimeout(timer);
+    // `position` advances with the clock; re-arming on every tick would thrash,
+    // so the timer is rebuilt only when the pending reaction changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nextAheadAtMs, refresh]);
 
   useEffect(() => {
     feedRef.current?.scrollTo({ top: feedRef.current.scrollHeight, behavior: "smooth" });
@@ -80,6 +90,7 @@ export function WatchRoomView({
       setError("再生位置は 12:34 の形式で入力してください");
       return;
     }
+    setPositionInput(null);
     run(() => (state.joined ? syncPositionAction(state.id, parsed) : joinRoomAction(state.id, parsed)));
   };
 
@@ -156,11 +167,17 @@ export function WatchRoomView({
               name="position"
               inputMode="numeric"
               placeholder="12:34"
-              defaultValue={formatPosition(position)}
+              value={positionInput ?? formatPosition(position)}
+              onChange={(event) => setPositionInput(event.target.value)}
               className="w-28 border border-[var(--line)] bg-transparent px-3 py-2 font-mono text-sm"
             />
             <RoomButton type="submit">この位置にする</RoomButton>
-            <RoomButton onClick={() => run(() => syncPositionAction(state.id, 0))}>
+            <RoomButton
+              onClick={() => {
+                setPositionInput(null);
+                run(() => syncPositionAction(state.id, 0));
+              }}
+            >
               いま最初から
             </RoomButton>
           </form>

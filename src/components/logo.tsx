@@ -27,8 +27,8 @@ export function Logo({ size = 34, className }: { size?: number; className?: stri
     <span className={`inline-flex items-center gap-3 ${className ?? ""}`}>
       <LogoMark size={size} className="text-[var(--accent)]" />
       <span className="flex flex-col gap-1 leading-none">
-        <span className="display text-sm tracking-[0.22em]">PERSONAL</span>
-        <span className="label text-[10px] text-[var(--muted)]">CINEMA</span>
+        <span className="display text-sm tracking-[0.22em]">SKYNET</span>
+        <span className="label text-[10px] text-[var(--muted)]">スカイネット</span>
       </span>
     </span>
   );

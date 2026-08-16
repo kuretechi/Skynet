@@ -1,15 +1,39 @@
 "use client";
 
-import { useActionState } from "react";
-import { postReviewAction, type ActionState } from "@/lib/actions";
+import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { postReviewAction, type ActionState, type ReviewCard } from "@/lib/actions";
 
-const initialState: ActionState = {};
+export function ReviewForm({
+  providerId,
+  initialText,
+  initialSpoiler,
+  onPosted,
+}: {
+  providerId: string;
+  initialText?: string;
+  initialSpoiler?: boolean;
+  onPosted?: (review: ReviewCard) => void;
+}) {
+  const router = useRouter();
+  const [state, setState] = useState<ActionState>({});
+  const [pending, setPending] = useState(false);
 
-export function ReviewForm({ providerId, initialText, initialSpoiler }: { providerId: string; initialText?: string; initialSpoiler?: boolean }) {
-  const [state, action, pending] = useActionState(postReviewAction, initialState);
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    setPending(true);
+    const result = await postReviewAction({}, formData);
+    setPending(false);
+    setState({ ok: result.ok, error: result.error });
+    if (!result.ok) return;
+    if (result.review) onPosted?.(result.review);
+    // Keeps the rest of the page (community feed, counters) in step.
+    router.refresh();
+  };
 
   return (
-    <form action={action} className="flex flex-col gap-3 border border-[var(--line)] bg-[var(--surface)] p-4">
+    <form onSubmit={submit} className="flex flex-col gap-3 border border-[var(--line)] bg-[var(--surface)] p-4">
       <input type="hidden" name="providerId" value={providerId} />
       <label className="label" htmlFor="review-text">
         Write Review
@@ -19,6 +43,7 @@ export function ReviewForm({ providerId, initialText, initialSpoiler }: { provid
         name="text"
         rows={4}
         defaultValue={initialText}
+        onChange={() => setState({})}
         placeholder="この映画が自分に何を残したか。"
         className="resize-none border border-[var(--line)] bg-[var(--surface-2)] p-3 text-sm outline-none focus:border-[var(--accent)]"
       />

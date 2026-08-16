@@ -118,7 +118,7 @@ export default async function CommunityPage() {
               const type = getCineType(review.user.dna?.cineTypeId);
               return (
                 <li key={review.id} className="flex gap-4">
-                  <Link href={`/movie/${review.movie.providerId}`} className="w-16 shrink-0">
+                  <Link href={`/movie/${review.movie.providerId}`} prefetch={false} className="w-16 shrink-0">
                     <PosterFrame
                       title={review.movie.title}
                       posterUrl={posterUrl(review.movie)}
@@ -143,7 +143,7 @@ export default async function CommunityPage() {
                         </span>
                       ) : null}
                     </div>
-                    <Link href={`/movie/${review.movie.providerId}`} className="label">
+                    <Link href={`/movie/${review.movie.providerId}`} prefetch={false} className="label">
                       {review.movie.title} · {releaseYear(review.movie.releaseDate)}
                     </Link>
                     {review.spoiler ? (

@@ -1,4 +1,4 @@
-# Personal Cinema
+# スカイネット（SKYNET）
 
 **観た映画に星をつけるだけで、それがそのまま「自分の紹介文」になるアプリ。**
 
@@ -145,7 +145,7 @@ TMDB を使う場合は、リポジトリ設定の **Settings → Secrets and va
 
 すべてスマホのブラウザだけで完了します。
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/import?s=https%3A%2F%2Fgithub.com%2Fkuretechi%2FSkynet&project-name=personal-cinema&env=DATABASE_URL,AUTH_SECRET,TMDB_API_KEY&envDescription=DATABASE_URL%3A%20Supabase%20%E3%81%AA%E3%81%A9%20Postgres%20%E3%81%AE%E6%8E%A5%E7%B6%9A%E6%96%87%E5%AD%97%E5%88%97%20%2F%20AUTH_SECRET%3A%20%E4%BB%BB%E6%84%8F%E3%81%AE%E3%83%A9%E3%83%B3%E3%83%80%E3%83%A0%E6%96%87%E5%AD%97%E5%88%97%20%2F%20TMDB_API_KEY%3A%20TMDB%20%E3%81%AE%20API%20%E3%82%AD%E3%83%BC&envLink=https%3A%2F%2Fgithub.com%2Fkuretechi%2FSkynet%23%E7%92%B0%E5%A2%83%E5%A4%89%E6%95%B0)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/import?s=https%3A%2F%2Fgithub.com%2Fkuretechi%2FSkynet&project-name=skynet&env=DATABASE_URL,AUTH_SECRET,TMDB_API_KEY&envDescription=DATABASE_URL%3A%20Supabase%20%E3%81%AA%E3%81%A9%20Postgres%20%E3%81%AE%E6%8E%A5%E7%B6%9A%E6%96%87%E5%AD%97%E5%88%97%20%2F%20AUTH_SECRET%3A%20%E4%BB%BB%E6%84%8F%E3%81%AE%E3%83%A9%E3%83%B3%E3%83%80%E3%83%A0%E6%96%87%E5%AD%97%E5%88%97%20%2F%20TMDB_API_KEY%3A%20TMDB%20%E3%81%AE%20API%20%E3%82%AD%E3%83%BC&envLink=https%3A%2F%2Fgithub.com%2Fkuretechi%2FSkynet%23%E7%92%B0%E5%A2%83%E5%A4%89%E6%95%B0)
 
 1. Supabase でプロジェクトを作り、**Connect → Transaction pooler** の URI をコピー
    （`postgres.<ref>@aws-N-<region>.pooler.supabase.com:6543`）
@@ -217,10 +217,27 @@ PostgreSQL に切り替わります（`scripts/sync-prisma-schema.mjs`）。ロ�
 | `OPENAI_API_KEY` | 特徴量生成が決定論ルールのみになる |
 | `AUTH_SECRET` | 開発用の固定鍵にフォールバック（本番では必ず設定） |
 | `DATABASE_URL` | 未設定なら `.env` の SQLite（`file:./dev.db`）。Postgres URL を渡すと PostgreSQL に切り替わる |
+| `DB_POOL_MAX` | インスタンスあたりの Postgres 接続上限（既定 30）。同時アクセスが多いイベントでは増やす |
 | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ウォッチルームが Supabase Realtime を使わず 3 秒ポーリングで更新される |
+| `CRON_SECRET` | 日次メンテナンス（`/api/cron/refresh`）が 503 を返して動かない |
 
 TMDB を利用する場合は、TMDB の最新の利用条件とアトリビューション要件に従ってください。
 外部映画サイトのスクレイピングは行いません。
+
+## 日次メンテナンス
+
+`vercel.json` の cron が毎日 `/api/cron/refresh` を叩き、次の作業をまとめて行います（`Authorization: Bearer $CRON_SECRET` が必要）。
+
+- 公開中・人気の新作をカタログに取り込み、8 軸の特徴量を生成
+- 14 日以上前に取得した作品メタデータを再取得して特徴量を作り直す（評価・レビュー・棚はそのまま）
+- 閉じ忘れたウォッチルームを終了させ、90 日より古い終了済みルームを削除
+- 無操作が続くと停止する Postgres（Supabase 無料枠など）へ定期的に接続する
+
+Vercel 以外で動かす場合は、同じエンドポイントを任意のスケジューラから叩けば同じ結果になります。
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" https://<your-app>/api/cron/refresh
+```
 
 ## スクリプト
 

@@ -19,9 +19,8 @@ import { MovieActions } from "@/components/movie-actions";
 import { MovieHero } from "@/components/movie-hero";
 import { PosterFrame, ScoreBlock, releaseYear } from "@/components/movie-visuals";
 import { RatingInput } from "@/components/rating-input";
-import { ReviewForm } from "@/components/review-form";
+import { ReviewSection } from "@/components/review-section";
 import { SectionHeader } from "@/components/movie-list";
-import { LikeButton, SpoilerText } from "@/components/community-buttons";
 import { CarouselSkeleton, SectionSkeleton } from "@/components/skeletons";
 import type { Movie } from "@prisma/client";
 
@@ -152,7 +151,7 @@ async function SimilarStructure({ movie }: { movie: Movie }) {
       <ul className="no-scrollbar -mx-5 flex gap-4 overflow-x-auto px-5">
         {similar.map((item) => (
           <li key={item.movie.id} className="w-24 shrink-0">
-            <Link href={`/movie/${item.movie.providerId}`}>
+            <Link href={`/movie/${item.movie.providerId}`} prefetch={false}>
               <PosterFrame
                 title={item.movie.title}
                 posterUrl={posterUrl(item.movie)}
@@ -175,35 +174,20 @@ async function Reviews({ movie, userId }: { movie: Movie; userId: string }) {
     include: { user: true, likes: true },
     orderBy: { createdAt: "desc" },
   });
-  const myReview = reviews.find((r) => r.userId === userId);
 
   return (
-    <section className="flex flex-col gap-5">
-      <SectionHeader title="Reviews" caption={`${reviews.length}`} />
-      <ReviewForm
-        providerId={movie.providerId}
-        initialText={myReview?.text}
-        initialSpoiler={myReview?.spoiler}
-      />
-      <ul className="flex flex-col gap-6">
-        {reviews.map((review) => (
-          <li key={review.id} className="flex flex-col gap-2 border-t border-[var(--line)] pt-4">
-            <Link href={`/u/${review.userId}`} className="label">
-              {review.user.name}
-            </Link>
-            {review.spoiler ? (
-              <SpoilerText text={review.text} />
-            ) : (
-              <p className="text-sm leading-relaxed">{review.text}</p>
-            )}
-            <LikeButton
-              reviewId={review.id}
-              initialLiked={review.likes.some((like) => like.userId === userId)}
-              initialCount={review.likes.length}
-            />
-          </li>
-        ))}
-      </ul>
-    </section>
+    <ReviewSection
+      providerId={movie.providerId}
+      userId={userId}
+      initialReviews={reviews.map((review) => ({
+        id: review.id,
+        userId: review.userId,
+        userName: review.user.name,
+        text: review.text,
+        spoiler: review.spoiler,
+        likeCount: review.likes.length,
+        liked: review.likes.some((like) => like.userId === userId),
+      }))}
+    />
   );
 }

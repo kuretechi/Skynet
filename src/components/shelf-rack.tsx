@@ -167,6 +167,7 @@ export function ShelfRack({ items }: { items: ShelfItem[] }) {
             >
               <Link
                 href={`/movie/${item.providerId}`}
+                prefetch={false}
                 aria-label={item.title}
                 className="spine-texture absolute inset-0 flex flex-col items-center justify-between overflow-hidden rounded-[2px] py-3"
                 style={{

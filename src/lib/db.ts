@@ -42,9 +42,12 @@ function createPrismaClient(): PrismaClient {
     globalForPrisma.pool ??
     new Pool({
       connectionString,
-      // Pages fan out ~10 queries at once; the transaction pooler multiplexes
-      // them, so a handful of real connections per instance is plenty.
-      max: 10,
+      // Pages fan out ~10 queries at once, so the pool size caps how many
+      // visitors an instance can serve in parallel: with 60 concurrent
+      // requests against /home, 10 connections meant a 12.8s p90, 30 meant
+      // 6.6s. The transaction pooler multiplexes these onto few server
+      // connections, so the cost of a larger pool is client sockets only.
+      max: Number(process.env.DB_POOL_MAX ?? 30),
       idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 10_000,
       ssl: { rejectUnauthorized: false },

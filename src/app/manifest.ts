@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Personal Cinema",
-    short_name: "Cinema",
+    name: "スカイネット",
+    short_name: "スカイネット",
     description: "映画を探す場所ではなく、あなたの映画人生をつくる場所。",
     start_url: "/home",
     scope: "/",

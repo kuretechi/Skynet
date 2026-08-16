@@ -24,7 +24,7 @@
 | --- | --- | --- |
 | Movie Provider | `src/lib/movies/` | 外部メタデータ取得の抽象化。TMDB / Mock を差し替え可能 |
 | Lazy Cache | `src/lib/movies/repository.ts` | ユーザーが触れた映画だけを DB に取り込む（全件同期はしない） |
-| Feature 生成 | `src/lib/features/` | 決定論ルール + 任意の LLM 分類器のハイブリッド。バージョン付き |
+| Feature 生成 | `src/lib/features/` | 決定論ルール + 任意の Devin API 分類器のハイブリッド。バージョン付き |
 | Cinema DNA | `src/lib/dna/` | 評価履歴 × 映画特徴量からユーザー 8 軸ベクトルと CineType |
 | Recommendation | `src/lib/recommend/` | 説明可能な content-based スコアリング |
 
@@ -78,9 +78,23 @@ TMDB を使う場合は、リポジトリ設定の **Settings → Secrets and va
 | 変数 | 未設定時の挙動 |
 | --- | --- |
 | `TMDB_API_KEY` | 同梱のモックカタログ（36 作品）で動作 |
-| `OPENAI_API_KEY` | 特徴量生成が決定論ルールのみになる |
+| `DEVIN_API_KEY` | 特徴量生成が決定論ルールのみになる（設定すると Devin API のセッションで 8 軸分類を行う） |
 | `AUTH_SECRET` | 開発用の固定鍵にフォールバック（本番では必ず設定） |
 | `DATABASE_URL` | 未設定なら `.env` の SQLite（`file:./dev.db`）。Postgres URL を渡すと PostgreSQL に切り替わる |
+
+### Devin API 分類器（任意）
+
+`src/lib/features/devin.ts` が Devin API の `POST /v1/sessions` を
+`structured_output_schema`（8 軸 0.0–1.0）付きで呼び出し、`GET /v1/sessions/{id}` を
+ポーリングして `structured_output` を受け取ります。失敗・タイムアウト時は null を返し、
+決定論ルールのみの結果にフォールバックします。
+
+1. Devin の設定画面で API キー（Personal Access Token もしくはサービスユーザーのキー）を発行
+2. `.env`（および Vercel の Environment Variables）に `DEVIN_API_KEY` を設定
+3. 必要なら `DEVIN_TIMEOUT_MS` / `DEVIN_POLL_INTERVAL_MS` / `DEVIN_MAX_ACU_LIMIT` を調整
+
+1 セッションが 1 作品の分類に対応するため、OpenAI のチャット API より応答が遅く ACU を消費します。
+特徴量は `MovieFeature`（`FEATURE_VERSION` 単位）にキャッシュされるので、同じ作品では再実行されません。
 
 TMDB を利用する場合は、TMDB の最新の利用条件とアトリビューション要件に従ってください。
 外部映画サイトのスクレイピングは行いません。

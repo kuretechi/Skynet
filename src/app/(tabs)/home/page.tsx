@@ -12,6 +12,8 @@ import { ScoredMovieCarousel, SectionHeader } from "@/components/movie-list";
 import { PosterFrame, releaseYear } from "@/components/movie-visuals";
 import { posterUrl } from "@/lib/movies/repository";
 import { RatingInput } from "@/components/rating-input";
+import { WatchlistButton } from "@/components/watchlist-button";
+import { watchlistMovieIds } from "@/lib/shelves";
 import { CarouselSkeleton, HeroSkeleton, SectionSkeleton } from "@/components/skeletons";
 
 export const dynamic = "force-dynamic";
@@ -83,7 +85,11 @@ export default async function HomePage() {
 }
 
 async function Tonight({ userId }: { userId: string }) {
-  const [tonight] = await homeRecommendations(userId);
+  const [recommendations, watchlist] = await Promise.all([
+    homeRecommendations(userId),
+    watchlistMovieIds(userId),
+  ]);
+  const [tonight] = recommendations;
   if (!tonight) return null;
 
   return (
@@ -114,18 +120,28 @@ async function Tonight({ userId }: { userId: string }) {
           </div>
           <p className="text-sm leading-relaxed text-[var(--muted)]">{tonight.explanation}</p>
         </Link>
+        <div className="self-start">
+          <WatchlistButton
+            providerId={tonight.movie.providerId}
+            initial={watchlist.has(tonight.movie.id)}
+          />
+        </div>
       </section>
   );
 }
 
 async function BecauseYouLoved({ userId }: { userId: string }) {
-  const [, ...rest] = await homeRecommendations(userId);
+  const [recommendations, watchlist] = await Promise.all([
+    homeRecommendations(userId),
+    watchlistMovieIds(userId),
+  ]);
+  const [, ...rest] = recommendations;
   if (rest.length === 0) return null;
 
   return (
     <section className="flex flex-col gap-4">
       <SectionHeader title="Because You Loved…" />
-      <ScoredMovieCarousel items={rest} />
+      <ScoredMovieCarousel items={rest} watchlist={watchlist} />
     </section>
   );
 }

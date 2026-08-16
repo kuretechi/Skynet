@@ -2,7 +2,6 @@ import { spawn } from "node:child_process";
 import { readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import pg from "pg";
 import { isPostgresUrl, schemaDatabaseUrl } from "./database-url.mjs";
 
 /**
@@ -11,8 +10,8 @@ import { isPostgresUrl, schemaDatabaseUrl } from "./database-url.mjs";
  * databases keep using `db push`: the migration files are PostgreSQL SQL.
  *
  * A database created before this script existed already has every table but no
- * migration history, so the first migration is marked as applied instead of
- * being run against it.
+ * migration history: `migrate deploy` refuses that with P3005, so the first
+ * migration is marked as applied and the deploy is retried.
  */
 const ATTEMPTS = 6;
 const BACKOFF_MS = 10_000;
@@ -41,10 +40,12 @@ function run(args) {
   });
 }
 
-async function withRetries(label, args) {
+/** Runs a prisma command, exiting on failure unless `tolerate` matches its output. */
+async function withRetries(label, args, tolerate) {
   for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
     const { code, output } = await run(args);
-    if (code === 0) return;
+    if (code === 0) return output;
+    if (tolerate?.test(output)) return output;
     if (attempt === ATTEMPTS || !RETRYABLE.test(output)) {
       console.error(`${label} failed`);
       process.exit(code);
@@ -52,34 +53,7 @@ async function withRetries(label, args) {
     console.warn(`${label} attempt ${attempt} hit a busy database; retrying`);
     await sleep(BACKOFF_MS);
   }
-}
-
-async function retrying(label, task) {
-  for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
-    try {
-      return await task();
-    } catch (error) {
-      const message = String(error);
-      if (attempt === ATTEMPTS || !RETRYABLE.test(message)) throw error;
-      console.warn(`${label} attempt ${attempt} hit a busy database; retrying`);
-      await sleep(BACKOFF_MS);
-    }
-  }
-}
-
-/** True when the database predates the migration history but already has tables. */
-async function needsBaseline() {
-  const client = new pg.Client({ connectionString: url });
-  await client.connect();
-  try {
-    const { rows } = await client.query(
-      `select to_regclass('public._prisma_migrations') is not null as has_history,
-              to_regclass('public."User"') is not null as has_tables`,
-    );
-    return !rows[0].has_history && rows[0].has_tables;
-  } finally {
-    await client.end();
-  }
+  return "";
 }
 
 function firstMigration() {
@@ -96,11 +70,9 @@ function firstMigration() {
 
 if (!isPostgresUrl(rawUrl)) {
   await withRetries("db push", ["db", "push", "--skip-generate", "--accept-data-loss"]);
-} else {
-  if (await retrying("baseline check", needsBaseline)) {
-    const baseline = firstMigration();
-    console.log(`marking ${baseline} as already applied to the existing database`);
-    await withRetries("migrate resolve", ["migrate", "resolve", "--applied", baseline]);
-  }
+} else if (/P3005/.test(await withRetries("migrate deploy", ["migrate", "deploy"], /P3005/))) {
+  const baseline = firstMigration();
+  console.log(`marking ${baseline} as already applied to the existing database`);
+  await withRetries("migrate resolve", ["migrate", "resolve", "--applied", baseline]);
   await withRetries("migrate deploy", ["migrate", "deploy"]);
 }

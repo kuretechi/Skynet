@@ -17,7 +17,11 @@ export async function computeCinemaDna(userId: string): Promise<DnaComputation> 
   for (const rating of ratings) {
     const feature = features.get(rating.movieId);
     if (!feature) continue;
-    signals.push({ vector: featureVector(feature), score: rating.score });
+    signals.push({
+      vector: featureVector(feature),
+      score: rating.score,
+      masterpiece: rating.masterpiece,
+    });
   }
 
   // Ratings whose features are missing still count towards the rating count.

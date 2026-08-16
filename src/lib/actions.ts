@@ -135,6 +135,68 @@ export async function rateMovieAction(providerId: string, score: number) {
   return { ok: true };
 }
 
+/**
+ * Masterpiece sits above the stars, so marking one also records a rating: the
+ * DNA reads it as the strongest possible opinion regardless of the star value.
+ */
+export async function toggleMasterpieceAction(providerId: string) {
+  const user = await requireUserOrThrow();
+  const movie = await ensureMovieByProviderId(providerId);
+  if (!movie) return { error: "映画が見つかりませんでした" };
+
+  const existing = await prisma.rating.findUnique({
+    where: { userId_movieId: { userId: user.id, movieId: movie.id } },
+  });
+  const masterpiece = !existing?.masterpiece;
+
+  await prisma.rating.upsert({
+    where: { userId_movieId: { userId: user.id, movieId: movie.id } },
+    update: { masterpiece },
+    create: { userId: user.id, movieId: movie.id, score: 5, masterpiece: true },
+  });
+  if (masterpiece) {
+    await prisma.watchHistory.upsert({
+      where: { userId_movieId: { userId: user.id, movieId: movie.id } },
+      update: {},
+      create: { userId: user.id, movieId: movie.id },
+    });
+    await ensureDefaultShelves(user.id);
+    await addToShelfByKind(user.id, movie.id, "watched");
+    await removeFromShelfByKind(user.id, movie.id, "want_to_watch");
+  }
+  await refreshCinemaDna(user.id);
+
+  revalidatePath("/dna");
+  revalidatePath("/shelf");
+  revalidatePath(`/movie/${providerId}`);
+  return { ok: true, masterpiece };
+}
+
+const noteText = z.string().max(2000, "メモは2000文字以内で入力してください");
+
+/** Private memo, kept out of reviews so nothing here is ever published. */
+export async function saveMovieNoteAction(providerId: string, text: string) {
+  const user = await requireUserOrThrow();
+  const parsed = noteText.safeParse(text);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const movie = await ensureMovieByProviderId(providerId);
+  if (!movie) return { error: "映画が見つかりませんでした" };
+
+  const trimmed = parsed.data.trim();
+  if (trimmed === "") {
+    await prisma.movieNote.deleteMany({ where: { userId: user.id, movieId: movie.id } });
+  } else {
+    await prisma.movieNote.upsert({
+      where: { userId_movieId: { userId: user.id, movieId: movie.id } },
+      update: { text: trimmed },
+      create: { userId: user.id, movieId: movie.id, text: trimmed },
+    });
+  }
+
+  revalidatePath(`/movie/${providerId}`);
+  return { ok: true, text: trimmed };
+}
+
 export async function removeRatingAction(providerId: string) {
   const user = await requireUserOrThrow();
   const movie = await ensureMovieByProviderId(providerId);
@@ -172,6 +234,8 @@ export async function toggleShelfAction(providerId: string, kind: "favorites" | 
   }
 
   revalidatePath("/shelf");
+  revalidatePath("/home");
+  revalidatePath("/discover");
   revalidatePath(`/movie/${providerId}`);
   return { ok: true, added: !existing };
 }

@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { RatingInput } from "./rating-input";
+import { WatchlistButton } from "./watchlist-button";
 
 export type SearchResult = {
   providerId: string;
@@ -95,9 +96,12 @@ export function MovieSearch({
               ) : null}
             </div>
             {mode === "browse" ? (
-              <Link href={`/movie/${movie.providerId}`} prefetch={false} className="label text-[var(--accent)]">
-                OPEN
-              </Link>
+              <div className="flex shrink-0 flex-col items-end gap-2">
+                <Link href={`/movie/${movie.providerId}`} prefetch={false} className="label text-[var(--accent)]">
+                  OPEN
+                </Link>
+                <WatchlistButton providerId={movie.providerId} />
+              </div>
             ) : null}
           </li>
         ))}

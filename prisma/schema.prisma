@@ -27,6 +27,7 @@ model User {
   dna          CinemaDna?
   reviews      Review[]
   reviewLikes  ReviewLike[]
+  notes        MovieNote[]
   following    Follow[]  @relation("follower")
   followers    Follow[]  @relation("following")
   hostedRooms  WatchRoom[]
@@ -62,6 +63,7 @@ model Movie {
   shelfMovies     ShelfMovie[]
   reviews         Review[]
   watchRooms      WatchRoom[]
+  notes           MovieNote[]
 
   @@unique([provider, providerId])
   @@index([popularity])
@@ -111,6 +113,24 @@ model Rating {
   userId    String
   movieId   String
   score     Float
+  /// Beyond the stars: the strongest possible opinion, weighted as such in the DNA.
+  masterpiece Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, movieId])
+  @@index([movieId])
+}
+
+/// Private per-movie memo. Unlike a review it is never shown to anyone else.
+model MovieNote {
+  id        String   @id @default(cuid())
+  userId    String
+  movieId   String
+  text      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -12,6 +12,7 @@ import {
 import { FEATURE_VERSION } from "@/lib/features/generate";
 import { getMood, MOODS } from "@/lib/recommend/moods";
 import { prisma } from "@/lib/db";
+import { watchlistMovieIds } from "@/lib/shelves";
 import { MovieSearch } from "@/components/movie-search";
 import { ScoredMovieCarousel, ScoredMovieRow, SectionHeader } from "@/components/movie-list";
 import { CarouselSkeleton, SectionSkeleton } from "@/components/skeletons";
@@ -126,7 +127,10 @@ export default async function DiscoverPage({
 }
 
 async function MoodResults({ userId, target }: { userId: string; target: AxisVector }) {
-  const moodResults = await moodRecommendations(userId, target);
+  const [moodResults, watchlist] = await Promise.all([
+    moodRecommendations(userId, target),
+    watchlistMovieIds(userId),
+  ]);
   if (moodResults.length === 0) {
     return (
       <p className="text-xs text-[var(--muted)]">
@@ -138,7 +142,7 @@ async function MoodResults({ userId, target }: { userId: string; target: AxisVec
     <ul className="flex flex-col divide-y divide-[var(--line)]">
       {moodResults.map((item) => (
         <li key={item.movie.id}>
-          <ScoredMovieRow item={item} />
+          <ScoredMovieRow item={item} inWatchlist={watchlist.has(item.movie.id)} />
         </li>
       ))}
     </ul>
@@ -146,7 +150,11 @@ async function MoodResults({ userId, target }: { userId: string; target: AxisVec
 }
 
 async function ForYou({ userId }: { userId: string }) {
-  const forYou = (await discoverRecommendations(userId)).slice(0, 6);
+  const [recommendations, watchlist] = await Promise.all([
+    discoverRecommendations(userId),
+    watchlistMovieIds(userId),
+  ]);
+  const forYou = recommendations.slice(0, 6);
   if (forYou.length === 0) return null;
 
   return (
@@ -155,7 +163,7 @@ async function ForYou({ userId }: { userId: string }) {
       <ul className="flex flex-col divide-y divide-[var(--line)]">
         {forYou.map((item) => (
           <li key={item.movie.id}>
-            <ScoredMovieRow item={item} />
+            <ScoredMovieRow item={item} inWatchlist={watchlist.has(item.movie.id)} />
           </li>
         ))}
       </ul>
@@ -164,29 +172,33 @@ async function ForYou({ userId }: { userId: string }) {
 }
 
 async function HiddenGems({ userId }: { userId: string }) {
-  const hiddenGems = (await discoverRecommendations(userId))
-    .filter((r) => r.movie.popularity < 55)
-    .slice(0, 6);
+  const [recommendations, watchlist] = await Promise.all([
+    discoverRecommendations(userId),
+    watchlistMovieIds(userId),
+  ]);
+  const hiddenGems = recommendations.filter((r) => r.movie.popularity < 55).slice(0, 6);
   if (hiddenGems.length === 0) return null;
 
   return (
     <section className="flex flex-col gap-4">
       <SectionHeader title="Hidden Gems" caption="話題の外にある作品" />
-      <ScoredMovieCarousel items={hiddenGems} />
+      <ScoredMovieCarousel items={hiddenGems} watchlist={watchlist} />
     </section>
   );
 }
 
 async function OutsideBubble({ userId }: { userId: string }) {
-  const outsideBubble = [...(await discoverRecommendations(userId))]
-    .sort((a, b) => a.score.match - b.score.match)
-    .slice(0, 4);
+  const [recommendations, watchlist] = await Promise.all([
+    discoverRecommendations(userId),
+    watchlistMovieIds(userId),
+  ]);
+  const outsideBubble = [...recommendations].sort((a, b) => a.score.match - b.score.match).slice(0, 4);
   if (outsideBubble.length === 0) return null;
 
   return (
     <section className="flex flex-col gap-4">
       <SectionHeader title="Outside Your Bubble" caption="嗜好から少し離れた提案" />
-      <ScoredMovieCarousel items={outsideBubble} />
+      <ScoredMovieCarousel items={outsideBubble} watchlist={watchlist} />
     </section>
   );
 }

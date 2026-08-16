@@ -17,6 +17,18 @@ import { ensureMovieByProviderId } from "@/lib/movies/repository";
 
 export type ActionState = { error?: string; ok?: boolean };
 
+export type ReviewCard = {
+  id: string;
+  userId: string;
+  userName: string;
+  text: string;
+  spoiler: boolean;
+  likeCount: number;
+  liked: boolean;
+};
+
+export type ReviewActionState = ActionState & { review?: ReviewCard };
+
 const credentials = z.object({
   email: z.string().email("メールアドレスの形式が正しくありません"),
   password: z.string().min(8, "パスワードは8文字以上にしてください"),
@@ -200,12 +212,15 @@ export async function createShelfAction(_prev: ActionState, formData: FormData):
   return { ok: true };
 }
 
-export async function postReviewAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+export async function postReviewAction(_prev: ActionState, formData: FormData): Promise<ReviewActionState> {
   const user = await requireUserOrThrow();
   const parsed = z
     .object({
       providerId: z.string().min(1),
-      text: z.string().min(1, "レビュー本文を入力してください").max(2000),
+      text: z
+        .string()
+        .min(1, "レビュー本文を入力してください")
+        .max(2000, "レビューは2000文字以内で入力してください"),
       spoiler: z.boolean(),
     })
     .safeParse({
@@ -218,15 +233,27 @@ export async function postReviewAction(_prev: ActionState, formData: FormData): 
   const movie = await ensureMovieByProviderId(parsed.data.providerId);
   if (!movie) return { error: "映画が見つかりませんでした" };
 
-  await prisma.review.upsert({
+  const review = await prisma.review.upsert({
     where: { userId_movieId: { userId: user.id, movieId: movie.id } },
     update: { text: parsed.data.text, spoiler: parsed.data.spoiler },
     create: { userId: user.id, movieId: movie.id, text: parsed.data.text, spoiler: parsed.data.spoiler },
+    include: { likes: true },
   });
 
   revalidatePath(`/movie/${parsed.data.providerId}`);
   revalidatePath("/community");
-  return { ok: true };
+  return {
+    ok: true,
+    review: {
+      id: review.id,
+      userId: user.id,
+      userName: user.name,
+      text: review.text,
+      spoiler: review.spoiler,
+      likeCount: review.likes.length,
+      liked: review.likes.some((like) => like.userId === user.id),
+    },
+  };
 }
 
 export async function toggleReviewLikeAction(reviewId: string) {

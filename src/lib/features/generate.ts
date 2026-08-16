@@ -15,8 +15,9 @@ export const FEATURE_VERSION = "v1";
 export const LLM_WEIGHT = 0.7;
 
 /**
- * A feature row is written once per (movieId, featureVersion) and never updated,
- * so once this process has seen one it never has to ask the database again.
+ * A feature row is stable per (movieId, featureVersion) outside the explicit
+ * regeneration path, so once this process has seen one it never has to ask the
+ * database again.
  */
 const featureCache = new LruMap<string, MovieFeature>(4000);
 
@@ -41,30 +42,30 @@ export const getOrCreateMovieFeatures = cache(async (movie: Movie): Promise<Movi
 });
 
 /** Feature generation without the cache lookup (callers that already missed it). */
-async function generateMovieFeatures(movie: Movie): Promise<MovieFeature> {
+async function generateMovieFeatures(movie: Movie, overwrite = false): Promise<MovieFeature> {
   const detail = movieRowToDetail(movie);
   const rules = generateRuleFeatures(detail);
   const llm = isLlmConfigured() ? await classifyWithLlm(detail) : null;
   const vector: AxisVector = llm ? mixVectors(llm, rules.vector, LLM_WEIGHT) : rules.vector;
 
+  const row = {
+    ...vector,
+    generatorType: llm ? "hybrid_llm_rules" : "rules_only",
+    rawFeaturesJson: JSON.stringify({
+      rules: rules.vector,
+      llm,
+      llmWeight: llm ? LLM_WEIGHT : 0,
+      matchedGenres: rules.matchedGenres,
+      matchedKeywords: rules.matchedKeywords,
+    }),
+  };
+
   const where = { movieId_featureVersion: { movieId: movie.id, featureVersion: FEATURE_VERSION } };
   try {
     return remember(await prisma.movieFeature.upsert({
       where,
-      update: {},
-      create: {
-        movieId: movie.id,
-        featureVersion: FEATURE_VERSION,
-        ...vector,
-        generatorType: llm ? "hybrid_llm_rules" : "rules_only",
-        rawFeaturesJson: JSON.stringify({
-          rules: rules.vector,
-          llm,
-          llmWeight: llm ? LLM_WEIGHT : 0,
-          matchedGenres: rules.matchedGenres,
-          matchedKeywords: rules.matchedKeywords,
-        }),
-      },
+      update: overwrite ? { ...row, generatedAt: new Date() } : {},
+      create: { movieId: movie.id, featureVersion: FEATURE_VERSION, ...row },
     }));
   } catch (error) {
     // Pages score many movies in parallel; on Postgres two of them can insert the
@@ -107,6 +108,16 @@ export async function getOrCreateMovieFeaturesMany(
   for (const feature of generated) features.set(feature.movieId, feature);
 
   return features;
+}
+
+/**
+ * Rewrites a stored vector in place. Used when the inputs changed after the
+ * first pass: refreshed provider metadata, or an LLM key added later so titles
+ * analysed as `rules_only` can be upgraded without a feature version bump.
+ */
+export async function regenerateMovieFeatures(movie: Movie): Promise<MovieFeature> {
+  featureCache.delete(movie.id);
+  return generateMovieFeatures(movie, true);
 }
 
 export const featureVector = (feature: MovieFeature): AxisVector =>

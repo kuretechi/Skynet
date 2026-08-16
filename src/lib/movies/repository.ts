@@ -129,6 +129,26 @@ export async function ensureMoviesByProviderIds(providerIds: readonly string[]):
   return movies.filter((movie): movie is Movie => movie !== null);
 }
 
+/**
+ * Refreshes the oldest cached rows regardless of whether anyone opened them.
+ * Ratings, reviews and shelves keep pointing at the same row, so only the
+ * provider-owned metadata changes.
+ */
+export async function refreshStaleMovies(limit: number): Promise<Movie[]> {
+  const provider = getMovieProvider();
+  const stale = await prisma.movie.findMany({
+    where: { provider: provider.name, fetchedAt: { lt: new Date(Date.now() - CACHE_TTL_MS) } },
+    orderBy: { fetchedAt: "asc" },
+    take: limit,
+  });
+
+  const refreshed = await mapWithConcurrency(stale, 4, async (movie) => {
+    const detail = await provider.detail(movie.providerId);
+    return detail ? upsertFromDetail(detail) : null;
+  });
+  return refreshed.filter((movie): movie is Movie => movie !== null);
+}
+
 export async function searchMovies(query: string): Promise<ProviderMovieSummary[]> {
   return getMovieProvider().search(query);
 }

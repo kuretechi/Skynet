@@ -142,6 +142,14 @@ export class TmdbMovieProvider implements MovieProvider {
     return (data?.results ?? []).map((m) => this.toSummary(m, genreNames));
   }
 
+  async nowPlaying(page = 1): Promise<ProviderMovieSummary[]> {
+    const [data, genreNames] = await Promise.all([
+      this.tryRequest<{ results: TmdbMovie[] }>("/movie/now_playing", { page, region: this.region }),
+      this.genres(),
+    ]);
+    return (data?.results ?? []).map((m) => this.toSummary(m, genreNames));
+  }
+
   imageUrl(path: string | null | undefined, size: "poster" | "backdrop"): string | null {
     if (!path) return null;
     return `${IMAGE_BASE}/${size === "poster" ? "w500" : "w1280"}${path}`;

@@ -95,7 +95,7 @@ export function MovieSearch({
               ) : null}
             </div>
             {mode === "browse" ? (
-              <Link href={`/movie/${movie.providerId}`} className="label text-[var(--accent)]">
+              <Link href={`/movie/${movie.providerId}`} prefetch={false} className="label text-[var(--accent)]">
                 OPEN
               </Link>
             ) : null}

@@ -9,7 +9,7 @@ export function ShelfGrid({ items }: { items: ShelfItem[] }) {
     <ul className="grid grid-cols-3 gap-x-3 gap-y-5">
       {items.map((item) => (
         <li key={item.id}>
-          <Link href={`/movie/${item.providerId}`} className="block">
+          <Link href={`/movie/${item.providerId}`} prefetch={false} className="block">
             <div
               className="relative aspect-[2/3] overflow-hidden rounded-[2px]"
               style={{

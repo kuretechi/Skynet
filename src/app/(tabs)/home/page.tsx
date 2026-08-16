@@ -89,7 +89,7 @@ async function Tonight({ userId }: { userId: string }) {
   return (
       <section className="flex flex-col gap-5">
         <SectionHeader title="Tonight For You" caption={`${tonight.score.match}% MATCH`} />
-        <Link href={`/movie/${tonight.movie.providerId}`} className="flex flex-col gap-5">
+        <Link href={`/movie/${tonight.movie.providerId}`} prefetch={false} className="flex flex-col gap-5">
           <div className="flex gap-5">
             <PosterFrame
               title={tonight.movie.title}
@@ -181,7 +181,7 @@ async function RecentlyWatched({ userId }: { userId: string }) {
       <ul className="no-scrollbar -mx-5 flex gap-4 overflow-x-auto px-5">
         {watchHistory.map((entry) => (
           <li key={entry.id} className="w-24 shrink-0">
-            <Link href={`/movie/${entry.movie.providerId}`}>
+            <Link href={`/movie/${entry.movie.providerId}`} prefetch={false}>
               <PosterFrame
                 title={entry.movie.title}
                 posterUrl={posterUrl(entry.movie)}
@@ -214,7 +214,7 @@ async function FriendsActivity({ userId }: { userId: string }) {
         {friendReviews.map((review) => (
           <li key={review.id} className="py-3">
             <p className="label">{review.user.name}</p>
-            <Link href={`/movie/${review.movie.providerId}`} className="text-sm">
+            <Link href={`/movie/${review.movie.providerId}`} prefetch={false} className="text-sm">
               {review.movie.title}
             </Link>
             <p className="mt-1 line-clamp-2 text-xs text-[var(--muted)]">

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { featureVector } from "@/lib/features/generate";
+import { FEATURE_VERSION, featureVector } from "@/lib/features/generate";
 import { posterUrl } from "@/lib/movies/repository";
 import { Logo } from "@/components/logo";
 import { DemoFlow, type DemoMovie } from "@/components/demo-flow";
@@ -16,6 +16,7 @@ export const revalidate = 600;
 /** Sign-in free walkthrough: pick a few movies, get a CineType and a Taste Universe. */
 export default async function DemoPage() {
   const features = await prisma.movieFeature.findMany({
+    where: { featureVersion: FEATURE_VERSION },
     include: { movie: true },
     orderBy: { movie: { popularity: "desc" } },
     take: 120,

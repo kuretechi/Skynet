@@ -129,10 +129,18 @@ export async function ensureMoviesByProviderIds(providerIds: readonly string[]):
   return movies.filter((movie): movie is Movie => movie !== null);
 }
 
+/** How long a row that the provider could not return waits before its next try. */
+const REFRESH_RETRY_MS = 1000 * 60 * 60 * 24;
+
 /**
  * Refreshes the oldest cached rows regardless of whether anyone opened them.
  * Ratings, reviews and shelves keep pointing at the same row, so only the
  * provider-owned metadata changes.
+ *
+ * A title the provider no longer serves (deleted or merged upstream) would
+ * otherwise stay the oldest row forever and hold the front of the queue, so a
+ * failed attempt is stamped far enough forward to be retried tomorrow while
+ * every genuinely stale row goes first.
  */
 export async function refreshStaleMovies(limit: number): Promise<Movie[]> {
   const provider = getMovieProvider();
@@ -142,11 +150,20 @@ export async function refreshStaleMovies(limit: number): Promise<Movie[]> {
     take: limit,
   });
 
-  const refreshed = await mapWithConcurrency(stale, 4, async (movie) => {
+  const results = await mapWithConcurrency(stale, 4, async (movie) => {
     const detail = await provider.detail(movie.providerId);
-    return detail ? upsertFromDetail(detail) : null;
+    return detail ? await upsertFromDetail(detail) : movie.id;
   });
-  return refreshed.filter((movie): movie is Movie => movie !== null);
+
+  const failedIds = results.filter((result): result is string => typeof result === "string");
+  if (failedIds.length > 0) {
+    await prisma.movie.updateMany({
+      where: { id: { in: failedIds } },
+      data: { fetchedAt: new Date(Date.now() - CACHE_TTL_MS + REFRESH_RETRY_MS) },
+    });
+  }
+
+  return results.filter((result): result is Movie => typeof result !== "string");
 }
 
 export async function searchMovies(query: string): Promise<ProviderMovieSummary[]> {

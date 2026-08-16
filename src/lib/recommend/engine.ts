@@ -4,6 +4,7 @@ import { TtlCache } from "@/lib/cache/process-cache";
 import { prisma } from "@/lib/db";
 import { type AxisVector, euclideanDistance, pickVector } from "@/lib/dna/axes";
 import {
+  FEATURE_VERSION,
   featureVector,
   getOrCreateMovieFeatures,
   getOrCreateMovieFeaturesMany,
@@ -187,6 +188,7 @@ export async function similarMovies(movie: Movie, limit = 6) {
     getOrCreateMovieFeatures(movie),
     similarityPool.get("all", () =>
       prisma.movieFeature.findMany({
+        where: { featureVersion: FEATURE_VERSION },
         include: { movie: true },
         take: 201,
         orderBy: { movie: { popularity: "desc" } },

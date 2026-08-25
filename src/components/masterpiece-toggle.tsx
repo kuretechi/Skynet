@@ -10,9 +10,11 @@ export const MASTERPIECE_PATH =
 export function MasterpieceToggle({
   providerId,
   initial,
+  onChange,
 }: {
   providerId: string;
   initial: boolean;
+  onChange?: (marked: boolean) => void;
 }) {
   const [marked, setMarked] = useState(initial);
   const [error, setError] = useState<string | null>(null);
@@ -21,15 +23,19 @@ export function MasterpieceToggle({
   const toggle = () => {
     const previous = marked;
     setMarked(!previous);
+    onChange?.(!previous);
     setError(null);
     startTransition(async () => {
       const result = await toggleMasterpieceAction(providerId);
       if (result?.error) {
         setMarked(previous);
+        onChange?.(previous);
         setError(result.error);
         return;
       }
-      setMarked(result.masterpiece ?? !previous);
+      const next = result.masterpiece ?? !previous;
+      setMarked(next);
+      onChange?.(next);
     });
   };
 
@@ -41,15 +47,15 @@ export function MasterpieceToggle({
         aria-pressed={marked}
         className="label flex items-center gap-2 self-start border px-3 py-2 transition-colors"
         style={{
-          borderColor: marked ? "var(--accent)" : "var(--line)",
-          color: marked ? "var(--accent)" : "var(--muted)",
-          background: marked ? "rgba(216,166,87,0.12)" : "transparent",
+          borderColor: marked ? "var(--masterpiece)" : "var(--line)",
+          color: marked ? "var(--masterpiece)" : "var(--muted)",
+          background: marked ? "color-mix(in srgb, var(--masterpiece) 12%, transparent)" : "transparent",
         }}
       >
         <svg viewBox="0 0 24 24" width={16} height={16} aria-hidden>
           <path
             d={MASTERPIECE_PATH}
-            fill={marked ? "var(--accent)" : "none"}
+            fill={marked ? "var(--masterpiece)" : "none"}
             stroke="currentColor"
             strokeWidth={1.2}
             strokeLinejoin="round"

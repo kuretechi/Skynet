@@ -4,8 +4,17 @@ import type { ProviderMovieDetail } from "@/lib/movies/types";
 import { logClassifierFailure, MOVIE_AXES_SCHEMA, moviePromptPayload, SYSTEM_PROMPT } from "./shared";
 import type { AiClassification } from "./types";
 
-export const GEMINI_DEFAULT_MODEL = "gemini-2.5-flash-lite";
+export const GEMINI_DEFAULT_MODEL = "gemini-3.5-flash-lite";
+const GEMINI_RETIRED_MODELS = new Set(["gemini-2.5-flash-lite"]);
 const GEMINI_TIMEOUT_MS = 15_000;
+
+function configuredGeminiModel(): string {
+  const configured = process.env.GEMINI_MODEL?.trim();
+  if (!configured || GEMINI_RETIRED_MODELS.has(configured)) {
+    return GEMINI_DEFAULT_MODEL;
+  }
+  return configured;
+}
 
 export async function classifyWithGemini(
   movie: ProviderMovieDetail,
@@ -13,7 +22,7 @@ export async function classifyWithGemini(
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
 
-  const model = process.env.GEMINI_MODEL || GEMINI_DEFAULT_MODEL;
+  const model = configuredGeminiModel();
   try {
     const client = new GoogleGenAI({
       apiKey,

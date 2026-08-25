@@ -13,6 +13,7 @@ import { isPostgresUrl } from "./database-url.mjs";
  *   SHADOW_DATABASE_URL=postgresql://... npm run db:migrate:new -- add_room_tags
  */
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const prismaCli = join(root, "node_modules", "prisma", "build", "index.js");
 const name = process.argv[2];
 const shadow = process.env.SHADOW_DATABASE_URL ?? "";
 
@@ -31,9 +32,9 @@ const dir = join(root, "prisma", "migrations", `${stamp}_${name}`);
 const sql = await new Promise((resolve) => {
   let output = "";
   const child = spawn(
-    "npx",
+    process.execPath,
     [
-      "prisma",
+      prismaCli,
       "migrate",
       "diff",
       "--from-migrations",

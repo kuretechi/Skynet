@@ -18,15 +18,17 @@ const BACKOFF_MS = 10_000;
 const RETRYABLE = /EMAXCONNSESSION|max clients reached|too many connections|Timed out|P1001|P1017/i;
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const prismaCli = join(root, "node_modules", "prisma", "build", "index.js");
 const rawUrl = process.env.DATABASE_URL ?? "";
 const url = schemaDatabaseUrl(rawUrl);
+const childEnv = url ? { ...process.env, DATABASE_URL: url } : process.env;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function run(args) {
   return new Promise((resolve) => {
     let output = "";
-    const child = spawn("npx", ["prisma", ...args], {
-      env: { ...process.env, DATABASE_URL: url },
+    const child = spawn(process.execPath, [prismaCli, ...args], {
+      env: childEnv,
       stdio: ["inherit", "pipe", "pipe"],
     });
     const capture = (stream, sink) =>

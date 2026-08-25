@@ -12,7 +12,37 @@ import { TasteUniverse, type UniversePoint } from "@/components/taste-universe";
 import { SectionHeader } from "@/components/movie-list";
 import { ONBOARDING_TARGET_RATINGS } from "@/lib/config";
 
+/** Round numbers worth celebrating, so the count itself becomes content. */
+const MILESTONES = [10, 25, 50, 100, 200, 365, 500, 1000];
+
 export const dynamic = "force-dynamic";
+
+function StatCard({
+  label,
+  value,
+  unit,
+  strong = false,
+}: {
+  label: string;
+  value: string;
+  unit: string;
+  strong?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-1 border border-[var(--line)] px-3 py-4">
+      <span className="label text-[10px] text-[var(--muted)]">{label}</span>
+      <span className="flex items-baseline gap-1">
+        <span
+          className="display text-3xl"
+          style={strong ? { color: "var(--accent)" } : undefined}
+        >
+          {value}
+        </span>
+        <span className="font-mono text-[10px] text-[var(--muted)]">{unit}</span>
+      </span>
+    </div>
+  );
+}
 
 export default async function DnaPage({ searchParams }: { searchParams: Promise<{ reveal?: string }> }) {
   const { reveal } = await searchParams;
@@ -46,12 +76,19 @@ export default async function DnaPage({ searchParams }: { searchParams: Promise<
     take: 120,
     orderBy: { generatedAt: "desc" },
   });
-  const [ratings, watched] = await Promise.all([
+  const [ratings, watched, noteCount] = await Promise.all([
     prisma.rating.findMany({ where: { userId: user.id } }),
-    prisma.watchHistory.findMany({ where: { userId: user.id }, select: { movieId: true } }),
+    prisma.watchHistory.findMany({
+      where: { userId: user.id },
+      select: { movieId: true, movie: { select: { runtime: true } } },
+    }),
+    prisma.movieNote.count({ where: { userId: user.id } }),
   ]);
   const ratingByMovie = new Map(ratings.map((r) => [r.movieId, r.score]));
+  const masterpieceIds = new Set(ratings.filter((r) => r.masterpiece).map((r) => r.movieId));
   const watchedIds = new Set(watched.map((w) => w.movieId));
+  const totalMinutes = watched.reduce((sum, w) => sum + (w.movie.runtime ?? 0), 0);
+  const nextMilestone = MILESTONES.find((m) => m > watched.length) ?? null;
 
   const points: UniversePoint[] = features.map((f) => ({
     id: f.movieId,
@@ -60,6 +97,7 @@ export default async function DnaPage({ searchParams }: { searchParams: Promise<
     vector: featureVector(f),
     rating: ratingByMovie.get(f.movieId) ?? null,
     watched: watchedIds.has(f.movieId),
+    masterpiece: masterpieceIds.has(f.movieId),
   }));
 
   return (
@@ -79,6 +117,23 @@ export default async function DnaPage({ searchParams }: { searchParams: Promise<
           {user.dna.featureVersion}
         </p>
       </header>
+
+      <section className="flex flex-col gap-4">
+        <SectionHeader
+          title="Cinema Life"
+          caption={
+            nextMilestone
+              ? `次の節目 ${nextMilestone} 本まであと ${nextMilestone - watched.length} 本`
+              : "全マイルストーン達成"
+          }
+        />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StatCard label="Movies" value={`${watched.length}`} unit="本" strong />
+          <StatCard label="Masterpiece" value={`${masterpieceIds.size}`} unit="本" />
+          <StatCard label="Screen Time" value={`${Math.round(totalMinutes / 60)}`} unit="時間" />
+          <StatCard label="Notes" value={`${noteCount}`} unit="件" />
+        </div>
+      </section>
 
       <section className="flex flex-col gap-4">
         <SectionHeader title="Type Code" caption="8軸を4つの対で読む / 中央に近いほど拮抗" />

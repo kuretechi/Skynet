@@ -229,7 +229,7 @@ SHADOW_DATABASE_URL=postgresql://postgres:pg@localhost:55432/postgres \
 | `TMDB_API_KEY` | 同梱のモックカタログ（36 作品）で動作 |
 | `AI_PROVIDER` | キーがある場合は Gemini、次に OpenAI を自動選択 |
 | `GEMINI_API_KEY` | Gemini を選択していて未設定なら、特徴量生成が決定論ルールのみになる |
-| `GEMINI_MODEL` | `gemini-2.5-flash-lite` を使用 |
+| `GEMINI_MODEL` | `gemini-3.5-flash-lite` を使用 |
 | `AI_BACKFILL_BATCH_SIZE` | 日次処理で AI 評価へ更新する待機作品数（既定 10、最大 20） |
 | `OPENAI_API_KEY` | `AI_PROVIDER=openai` の場合に使用する任意のフォールバック |
 | `AUTH_SECRET` | 開発用の固定鍵にフォールバック（本番では必ず設定） |

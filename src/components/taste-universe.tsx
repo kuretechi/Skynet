@@ -118,6 +118,11 @@ const PITCH_LIMIT = 1.2;
 // steady drag does not fling the hull just because the final frame was long.
 const FLING_WINDOW = 90;
 const FLING_MAX = 0.012;
+const MASTERPIECE_COLOR = "#ff6b9e";
+
+/** Keep dense universes readable without abruptly changing size at a threshold. */
+const pointScaleForCount = (count: number) =>
+  Math.max(0.48, Math.min(1, Math.sqrt(36 / Math.max(count, 36))));
 
 /** Five-pointed star polygon, used to mark masterpieces. */
 const starPoints = (cx: number, cy: number, outer: number) => {
@@ -251,6 +256,7 @@ export function TasteUniverse({
   const plotted = points
     .map((point) => ({ point, at: place(project3(point.vector)) }))
     .sort((a, b) => a.at.z - b.at.z);
+  const pointScale = pointScaleForCount(points.length);
 
   return (
     <svg
@@ -328,7 +334,8 @@ export function TasteUniverse({
       ))}
 
       {plotted.map(({ point, at }) => {
-        const r = (point.watched ? 2.6 + (point.rating ?? 3) * 0.7 : 2.8) * at.depth;
+        const r =
+          (point.watched ? 2.6 + (point.rating ?? 3) * 0.7 : 2.8) * at.depth * pointScale;
         // Masterpieces are drawn as a haloed star instead of a dot, so the films
         // that define the taste read at a glance.
         const star = point.masterpiece ? starPoints(at.x, at.y, r * 1.9) : null;
@@ -349,12 +356,36 @@ export function TasteUniverse({
           >
             {star ? (
               <>
-                <circle cx={at.x} cy={at.y} r={r * 2.6} fill="var(--accent)" fillOpacity={0.1 + at.depth * 0.1} />
+                <circle
+                  className="masterpiece-ripple"
+                  cx={at.x}
+                  cy={at.y}
+                  r={r * 1.5}
+                  fill="none"
+                  stroke={MASTERPIECE_COLOR}
+                  strokeWidth={0.9}
+                />
+                <circle
+                  className="masterpiece-ripple masterpiece-ripple-delayed"
+                  cx={at.x}
+                  cy={at.y}
+                  r={r * 1.5}
+                  fill="none"
+                  stroke={MASTERPIECE_COLOR}
+                  strokeWidth={0.7}
+                />
+                <circle
+                  cx={at.x}
+                  cy={at.y}
+                  r={r * 2.6}
+                  fill={MASTERPIECE_COLOR}
+                  fillOpacity={0.08 + at.depth * 0.08}
+                />
                 <polygon
                   points={star}
-                  fill="var(--accent)"
+                  fill={MASTERPIECE_COLOR}
                   fillOpacity={0.6 + at.depth * 0.3}
-                  stroke="var(--accent)"
+                  stroke={MASTERPIECE_COLOR}
                   strokeWidth={1.1}
                   strokeLinejoin="round"
                 />
@@ -377,7 +408,8 @@ export function TasteUniverse({
       })}
 
       <text x={12} y={size - 8} fontSize={8} letterSpacing={1.4} fill="var(--muted)">
-        ● WATCHED　○ RECOMMENDED　★ MASTERPIECE　/　DRAG TO ROTATE
+        ○ RECOMMENDED　● WATCHED　
+        <tspan fill={MASTERPIECE_COLOR}>★ MASTERPIECE</tspan>
       </text>
     </svg>
   );

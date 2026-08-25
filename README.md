@@ -227,7 +227,11 @@ SHADOW_DATABASE_URL=postgresql://postgres:pg@localhost:55432/postgres \
 | 変数 | 未設定時の挙動 |
 | --- | --- |
 | `TMDB_API_KEY` | 同梱のモックカタログ（36 作品）で動作 |
-| `OPENAI_API_KEY` | 特徴量生成が決定論ルールのみになる |
+| `AI_PROVIDER` | キーがある場合は Gemini、次に OpenAI を自動選択 |
+| `GEMINI_API_KEY` | Gemini を選択していて未設定なら、特徴量生成が決定論ルールのみになる |
+| `GEMINI_MODEL` | `gemini-2.5-flash-lite` を使用 |
+| `AI_BACKFILL_BATCH_SIZE` | 日次処理で AI 評価へ更新する待機作品数（既定 10、最大 20） |
+| `OPENAI_API_KEY` | `AI_PROVIDER=openai` の場合に使用する任意のフォールバック |
 | `AUTH_SECRET` | 開発用の固定鍵にフォールバック（本番では必ず設定） |
 | `DATABASE_URL` | 未設定なら `.env` の SQLite（`file:./dev.db`）。Postgres URL を渡すと PostgreSQL に切り替わる |
 | `DB_POOL_MAX` | インスタンスあたりの Postgres 接続上限（既定 30）。同時アクセスが多いイベントでは増やす |
@@ -243,6 +247,7 @@ TMDB を利用する場合は、TMDB の最新の利用条件とアトリビュ�
 
 - 公開中・人気の新作をカタログに取り込み、8 軸の特徴量を生成
 - 14 日以上前に取得した作品メタデータを再取得して特徴量を作り直す（評価・レビュー・棚はそのまま）
+- `rules_only` の古い作品から順に、1件ずつ最大 `AI_BACKFILL_BATCH_SIZE` 件をAI評価へ更新
 - 閉じ忘れたウォッチルームを終了させ、90 日より古い終了済みルームを削除
 - 無操作が続くと停止する Postgres（Supabase 無料枠など）へ定期的に接続する
 

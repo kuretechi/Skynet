@@ -1,5 +1,10 @@
 import { spawn } from "node:child_process";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { schemaDatabaseUrl } from "./database-url.mjs";
+
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const prismaCli = join(root, "node_modules", "prisma", "build", "index.js");
 
 /**
  * Supabase's session pooler (port 5432) only accepts 15 clients at a time and
@@ -15,16 +20,17 @@ const BACKOFF_MS = 10_000;
 const RETRYABLE = /EMAXCONNSESSION|max clients reached|too many connections|Timed out|P1001|P1017/i;
 
 const url = schemaDatabaseUrl(process.env.DATABASE_URL ?? "");
+const childEnv = url ? { ...process.env, DATABASE_URL: url } : process.env;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function push() {
   return new Promise((resolve) => {
     let output = "";
     const child = spawn(
-      "npx",
-      ["prisma", "db", "push", "--skip-generate", "--accept-data-loss"],
+      process.execPath,
+      [prismaCli, "db", "push", "--skip-generate", "--accept-data-loss"],
       {
-        env: { ...process.env, DATABASE_URL: url },
+        env: childEnv,
         stdio: ["inherit", "pipe", "pipe"],
       },
     );

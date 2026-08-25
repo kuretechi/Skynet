@@ -11,6 +11,7 @@ export type UniversePoint = {
   vector: AxisVector;
   rating: number | null;
   watched: boolean;
+  masterpiece?: boolean;
 };
 
 type Vec3 = { x: number; y: number; z: number };
@@ -117,6 +118,18 @@ const PITCH_LIMIT = 1.2;
 // steady drag does not fling the hull just because the final frame was long.
 const FLING_WINDOW = 90;
 const FLING_MAX = 0.012;
+
+/** Five-pointed star polygon, used to mark masterpieces. */
+const starPoints = (cx: number, cy: number, outer: number) => {
+  const inner = outer * 0.42;
+  const coords: string[] = [];
+  for (let i = 0; i < 10; i += 1) {
+    const radius = i % 2 === 0 ? outer : inner;
+    const angle = (Math.PI / 5) * i - Math.PI / 2;
+    coords.push(`${cx + Math.cos(angle) * radius},${cy + Math.sin(angle) * radius}`);
+  }
+  return coords.join(" ");
+};
 
 const clampPitch = (pitch: number) => Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, pitch));
 const clampFling = (v: number) => Math.max(-FLING_MAX, Math.min(FLING_MAX, v));
@@ -316,6 +329,9 @@ export function TasteUniverse({
 
       {plotted.map(({ point, at }) => {
         const r = (point.watched ? 2.6 + (point.rating ?? 3) * 0.7 : 2.8) * at.depth;
+        // Masterpieces are drawn as a haloed star instead of a dot, so the films
+        // that define the taste read at a glance.
+        const star = point.masterpiece ? starPoints(at.x, at.y, r * 1.9) : null;
         return (
           <g
             key={point.id}
@@ -331,23 +347,37 @@ export function TasteUniverse({
             }}
             aria-label={point.title}
           >
-            <circle
-              cx={at.x}
-              cy={at.y}
-              r={r}
-              fill={point.watched ? "var(--accent)" : "transparent"}
-              fillOpacity={point.watched ? 0.3 + at.depth * 0.45 : 0}
-              stroke={point.watched ? "var(--accent)" : "var(--ink-55)"}
-              strokeWidth={0.9}
-              strokeOpacity={0.35 + at.depth * 0.45}
-            />
+            {star ? (
+              <>
+                <circle cx={at.x} cy={at.y} r={r * 2.6} fill="var(--accent)" fillOpacity={0.1 + at.depth * 0.1} />
+                <polygon
+                  points={star}
+                  fill="var(--accent)"
+                  fillOpacity={0.6 + at.depth * 0.3}
+                  stroke="var(--accent)"
+                  strokeWidth={1.1}
+                  strokeLinejoin="round"
+                />
+              </>
+            ) : (
+              <circle
+                cx={at.x}
+                cy={at.y}
+                r={r}
+                fill={point.watched ? "var(--accent)" : "transparent"}
+                fillOpacity={point.watched ? 0.3 + at.depth * 0.45 : 0}
+                stroke={point.watched ? "var(--accent)" : "var(--ink-55)"}
+                strokeWidth={0.9}
+                strokeOpacity={0.35 + at.depth * 0.45}
+              />
+            )}
             <title>{point.title}</title>
           </g>
         );
       })}
 
       <text x={12} y={size - 8} fontSize={8} letterSpacing={1.4} fill="var(--muted)">
-        ● WATCHED　○ RECOMMENDED　/　DRAG TO ROTATE
+        ● WATCHED　○ RECOMMENDED　★ MASTERPIECE　/　DRAG TO ROTATE
       </text>
     </svg>
   );

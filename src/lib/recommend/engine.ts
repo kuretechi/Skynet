@@ -19,7 +19,7 @@ export type UserTasteContext = {
   ratingCount: number;
   meanRating: number;
   ratedMovieIds: Set<string>;
-  liked: { title: string; vector: AxisVector }[];
+  liked: { movieId: string; title: string; vector: AxisVector }[];
 };
 
 export const getUserTasteContext = cache(async (userId: string): Promise<UserTasteContext> => {
@@ -32,7 +32,9 @@ export const getUserTasteContext = cache(async (userId: string): Promise<UserTas
   const likedFeatures = await getOrCreateMovieFeaturesMany(likedRatings.map((r) => r.movie));
   const liked = likedRatings.flatMap((rating) => {
     const feature = likedFeatures.get(rating.movieId);
-    return feature ? [{ title: rating.movie.title, vector: featureVector(feature) }] : [];
+    return feature
+      ? [{ movieId: rating.movieId, title: rating.movie.title, vector: featureVector(feature) }]
+      : [];
   });
 
   const meanRating = ratings.length
@@ -117,7 +119,11 @@ export async function scoreMoviesForUser(
           userMeanRating: ctx.meanRating,
           externalScore: external,
         }),
-        explanation: buildExplanation(ctx.dna, vector, ctx.liked),
+        explanation: buildExplanation(
+          ctx.dna,
+          vector,
+          ctx.liked.filter((l) => l.movieId !== movie.id),
+        ),
         external,
         community: { average: agg?._avg.score ?? null, count: agg?._count.score ?? 0 },
       };

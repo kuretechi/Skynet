@@ -85,6 +85,10 @@ export function sharedStrengths(dna: AxisVector, movie: AxisVector, count = 3): 
     .map((s) => s.axis);
 }
 
+/**
+ * `liked` must not contain the movie being explained, or the reason cites the
+ * candidate as its own nearest neighbour.
+ */
 export function buildExplanation(
   dna: AxisVector,
   movie: AxisVector,

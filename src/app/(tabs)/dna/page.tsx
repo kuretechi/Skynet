@@ -76,18 +76,17 @@ export default async function DnaPage({ searchParams }: { searchParams: Promise<
     take: 120,
     orderBy: { generatedAt: "desc" },
   });
-  const [ratings, watched, noteCount] = await Promise.all([
+  const [ratings, watched, wantToWatchCount] = await Promise.all([
     prisma.rating.findMany({ where: { userId: user.id } }),
     prisma.watchHistory.findMany({
       where: { userId: user.id },
-      select: { movieId: true, movie: { select: { runtime: true } } },
+      select: { movieId: true },
     }),
-    prisma.movieNote.count({ where: { userId: user.id } }),
+    prisma.shelfMovie.count({ where: { shelf: { userId: user.id, kind: "want_to_watch" } } }),
   ]);
   const ratingByMovie = new Map(ratings.map((r) => [r.movieId, r.score]));
   const masterpieceIds = new Set(ratings.filter((r) => r.masterpiece).map((r) => r.movieId));
   const watchedIds = new Set(watched.map((w) => w.movieId));
-  const totalMinutes = watched.reduce((sum, w) => sum + (w.movie.runtime ?? 0), 0);
   const nextMilestone = MILESTONES.find((m) => m > watched.length) ?? null;
 
   const points: UniversePoint[] = features.map((f) => ({
@@ -127,11 +126,10 @@ export default async function DnaPage({ searchParams }: { searchParams: Promise<
               : "全マイルストーン達成"
           }
         />
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard label="Movies" value={`${watched.length}`} unit="本" strong />
-          <StatCard label="Masterpiece" value={`${masterpieceIds.size}`} unit="本" />
-          <StatCard label="Screen Time" value={`${Math.round(totalMinutes / 60)}`} unit="時間" />
-          <StatCard label="Notes" value={`${noteCount}`} unit="件" />
+        <div className="grid grid-cols-3 gap-3">
+          <StatCard label="WATCHED" value={`${watched.length}`} unit="本" strong />
+          <StatCard label="MASTERPIECE" value={`${masterpieceIds.size}`} unit="本" />
+          <StatCard label="WANT TO WATCH" value={`${wantToWatchCount}`} unit="本" />
         </div>
       </section>
 

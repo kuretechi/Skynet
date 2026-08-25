@@ -15,12 +15,11 @@ import { getUserTasteContext, scoreMovieForUser, similarMovies } from "@/lib/rec
 import { sharedStrengths } from "@/lib/recommend/for-you";
 import { BottomNav } from "@/components/bottom-nav";
 import { CreateRoomButton } from "@/components/create-room-button";
-import { MasterpieceToggle } from "@/components/masterpiece-toggle";
 import { MovieActions } from "@/components/movie-actions";
 import { MovieNote } from "@/components/movie-note";
 import { MovieHero } from "@/components/movie-hero";
 import { PosterFrame, ScoreBlock, releaseYear } from "@/components/movie-visuals";
-import { RatingInput } from "@/components/rating-input";
+import { RatingMasterpieceControls } from "@/components/rating-masterpiece-controls";
 import { ReviewSection } from "@/components/review-section";
 import { SectionHeader } from "@/components/movie-list";
 import { CarouselSkeleton, SectionSkeleton } from "@/components/skeletons";
@@ -110,9 +109,11 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ pr
           </section>
 
           <section className="flex flex-col gap-5">
-            <SectionHeader title="Your Rating" caption="0.5 — 5.0" />
-            <RatingInput providerId={movie.providerId} initialScore={rating?.score ?? null} />
-            <MasterpieceToggle providerId={movie.providerId} initial={rating?.masterpiece ?? false} />
+            <RatingMasterpieceControls
+              providerId={movie.providerId}
+              initialScore={rating?.score ?? null}
+              initialMasterpiece={rating?.masterpiece ?? false}
+            />
             <MovieActions providerId={movie.providerId} initial={shelfState} customShelves={customShelves} />
             <CreateRoomButton providerId={movie.providerId} movieTitle={movie.title} />
           </section>

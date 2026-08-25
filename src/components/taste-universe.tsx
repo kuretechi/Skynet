@@ -118,7 +118,7 @@ const PITCH_LIMIT = 1.2;
 // steady drag does not fling the hull just because the final frame was long.
 const FLING_WINDOW = 90;
 const FLING_MAX = 0.012;
-const MASTERPIECE_COLOR = "#ff6b9e";
+const MASTERPIECE_COLOR = "var(--masterpiece)";
 
 /** Keep dense universes readable without abruptly changing size at a threshold. */
 const pointScaleForCount = (count: number) =>

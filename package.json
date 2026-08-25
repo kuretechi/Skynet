@@ -16,6 +16,7 @@
     "db:migrate": "npm run db:schema && node scripts/db-migrate.mjs",
     "db:migrate:new": "npm run db:schema && node scripts/db-migrate-new.mjs",
     "db:seed": "tsx prisma/seed.ts",
+    "catalogue:bootstrap": "node scripts/bootstrap-catalogue.mjs",
     "setup": "npm run db:schema && prisma generate && node scripts/db-push.mjs && tsx prisma/seed.ts",
     "postinstall": "npm run db:schema && prisma generate",
     "vercel-build": "npm run db:schema && prisma generate && node scripts/db-migrate.mjs && next build"

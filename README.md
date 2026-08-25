@@ -257,6 +257,43 @@ Vercel 以外で動かす場合は、同じエンドポイントを任意のス�
 curl -H "Authorization: Bearer $CRON_SECRET" https://<your-app>/api/cron/refresh
 ```
 
+## 運用前の映画カタログ初期投入
+
+通常の日次処理とは別に、TMDB の人気作品と高評価作品を混ぜて最大 1,000 本を段階的に保存し、
+Gemini の 8 軸評価へ回せます。処理済みかどうかは `Movie` / `MovieFeature` から判定するため、
+途中で無料枠や実行時間の上限に達しても、成功済み作品を重複評価せず再開できます。
+
+まずメタデータを増やす場合（10 バッチで最大約 400 候補、重複分は自動除外）:
+
+```bash
+BOOTSTRAP_BASE_URL=https://<your-app> \
+CRON_SECRET=<Vercel と同じ値> \
+BOOTSTRAP_BATCHES=10 \
+BOOTSTRAP_AI_LIMIT=0 \
+npm run catalogue:bootstrap
+```
+
+続けて AI 評価を 1 回最大 10 本、10 バッチ進める場合:
+
+```bash
+BOOTSTRAP_BASE_URL=https://<your-app> \
+CRON_SECRET=<Vercel と同じ値> \
+BOOTSTRAP_BATCHES=10 \
+BOOTSTRAP_AI_LIMIT=10 \
+BOOTSTRAP_INGEST=false \
+npm run catalogue:bootstrap
+```
+
+レスポンスにはカタログ総数、AI 評価済み総数、未評価数、失敗数が出ます。AI が 1 件でも失敗した
+バッチではスクリプトが停止するため、AI Studio の上限や Vercel ログを確認してから同じコマンドを
+再実行してください。メタデータ投入を再開するときは、最後に表示された
+`Next metadata page` を `BOOTSTRAP_START_PAGE` に指定します。
+
+書き込み API は `POST /api/maintenance/bootstrap` で、`CRON_SECRET` の Bearer 認証が必須です。
+1 リクエストあたり TMDB 2 ページ、AI 20 本を上限に固定し、Vercel 関数の時間超過や誤操作による
+大量リクエストを防いでいます。この初期投入は `TMDB_API_KEY` と Gemini の設定がある本番環境向けで、
+DB マイグレーションは不要です。
+
 ## スクリプト
 
 ```bash
@@ -266,6 +303,7 @@ npm run lint       # ESLint
 npm run typecheck  # tsc --noEmit
 npm run verify     # lint + typecheck + production build（マージ前の共通検証）
 npm run db:seed    # デモデータ投入
+npm run catalogue:bootstrap # 本番の初期カタログを小分けで投入・AI評価
 ```
 
 ## 開発からデプロイまで

@@ -40,6 +40,8 @@ export interface MovieProvider {
   detail(providerId: string): Promise<ProviderMovieDetail | null>;
   discover(query: DiscoverQuery): Promise<ProviderMovieSummary[]>;
   popular(page?: number): Promise<ProviderMovieSummary[]>;
+  /** Highly rated catalogue titles, used to keep bootstrap data from being recency-only. */
+  topRated(page?: number): Promise<ProviderMovieSummary[]>;
   /** Titles released recently, so new films reach the catalogue on their own. */
   nowPlaying(page?: number): Promise<ProviderMovieSummary[]>;
   imageUrl(path: string | null | undefined, size: "poster" | "backdrop"): string | null;

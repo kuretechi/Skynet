@@ -51,6 +51,12 @@ export class MockMovieProvider implements MovieProvider {
     return [...MOCK_CATALOG].sort((a, b) => b.popularity - a.popularity).map(toSummary);
   }
 
+  async topRated(): Promise<ProviderMovieSummary[]> {
+    return [...MOCK_CATALOG]
+      .sort((a, b) => b.voteAverage - a.voteAverage || b.voteCount - a.voteCount)
+      .map(toSummary);
+  }
+
   async nowPlaying(): Promise<ProviderMovieSummary[]> {
     return [...MOCK_CATALOG]
       .sort((a, b) => (b.releaseDate ?? "").localeCompare(a.releaseDate ?? ""))

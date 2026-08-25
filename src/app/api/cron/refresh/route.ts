@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { runCatalogueRefresh } from "@/lib/maintenance/refresh";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 /**
  * Scheduled upkeep endpoint (see `crons` in vercel.json). Also safe to call by

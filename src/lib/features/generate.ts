@@ -45,16 +45,18 @@ export const getOrCreateMovieFeatures = cache(async (movie: Movie): Promise<Movi
 async function generateMovieFeatures(movie: Movie, overwrite = false): Promise<MovieFeature> {
   const detail = movieRowToDetail(movie);
   const rules = generateRuleFeatures(detail);
-  const llm = isLlmConfigured() ? await classifyWithLlm(detail) : null;
-  const vector: AxisVector = llm ? mixVectors(llm, rules.vector, LLM_WEIGHT) : rules.vector;
+  const ai = isLlmConfigured() ? await classifyWithLlm(detail) : null;
+  const vector: AxisVector = ai ? mixVectors(ai.vector, rules.vector, LLM_WEIGHT) : rules.vector;
 
   const row = {
     ...vector,
-    generatorType: llm ? "hybrid_llm_rules" : "rules_only",
+    generatorType: ai ? `hybrid_${ai.provider}_rules` : "rules_only",
     rawFeaturesJson: JSON.stringify({
       rules: rules.vector,
-      llm,
-      llmWeight: llm ? LLM_WEIGHT : 0,
+      ai: ai?.vector ?? null,
+      aiWeight: ai ? LLM_WEIGHT : 0,
+      provider: ai?.provider ?? null,
+      model: ai?.model ?? null,
       matchedGenres: rules.matchedGenres,
       matchedKeywords: rules.matchedKeywords,
     }),
@@ -104,7 +106,11 @@ export async function getOrCreateMovieFeaturesMany(
   }
 
   const missing = [...byId.values()].filter((movie) => !features.has(movie.id));
-  const generated = await mapWithConcurrency(missing, 4, (movie) => generateMovieFeatures(movie));
+  const generated = await mapWithConcurrency(
+    missing,
+    isLlmConfigured() ? 1 : 4,
+    (movie) => generateMovieFeatures(movie),
+  );
   for (const feature of generated) features.set(feature.movieId, feature);
 
   return features;

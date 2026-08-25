@@ -15,7 +15,7 @@ import { closeStaleRooms, purgeOldRooms } from "@/lib/rooms/service";
 const INGEST_PER_SOURCE = 20;
 
 /** Upper bound on rules-only vectors upgraded per run once an LLM is configured. */
-const UPGRADE_BATCH = 20;
+const UPGRADE_BATCH = Math.max(1, Math.min(Number(process.env.AI_BACKFILL_BATCH_SIZE) || 10, 20));
 
 export type RefreshReport = {
   ingested: number;
@@ -51,7 +51,7 @@ export async function runCatalogueRefresh(): Promise<RefreshReport> {
   const ingested = await ensureMoviesByProviderIds(providerIds);
   const features = await getOrCreateMovieFeaturesMany(ingested);
   const refreshed = await refreshStaleMovies(INGEST_PER_SOURCE);
-  await mapWithConcurrency(refreshed, 4, (movie) => regenerateMovieFeatures(movie));
+  await mapWithConcurrency(refreshed, isLlmConfigured() ? 1 : 4, (movie) => regenerateMovieFeatures(movie));
   const [roomsClosed, roomsPurged] = await Promise.all([closeStaleRooms(), purgeOldRooms()]);
 
   return {
@@ -74,13 +74,13 @@ async function upgradeRulesOnlyFeatures(): Promise<number> {
   const stale = await prisma.movieFeature.findMany({
     where: { featureVersion: FEATURE_VERSION, generatorType: "rules_only" },
     include: { movie: true },
-    orderBy: { movie: { popularity: "desc" } },
+    orderBy: { generatedAt: "asc" },
     take: UPGRADE_BATCH,
   });
 
   const upgraded = await mapWithConcurrency(
     stale.map((feature) => feature.movie),
-    4,
+    1,
     async (movie: Movie) => (await regenerateMovieFeatures(movie)).generatorType,
   );
   return upgraded.filter((generatorType) => generatorType !== "rules_only").length;

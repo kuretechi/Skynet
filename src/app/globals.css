@@ -150,6 +150,36 @@ body {
   user-select: none;
 }
 
+.masterpiece-ripple {
+  pointer-events: none;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: masterpiece-sonar 2.8s ease-out infinite;
+}
+
+.masterpiece-ripple-delayed {
+  animation-delay: 1.4s;
+}
+
+@keyframes masterpiece-sonar {
+  0% {
+    opacity: 0.52;
+    transform: scale(0.65);
+  }
+  75%,
+  100% {
+    opacity: 0;
+    transform: scale(2.4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .masterpiece-ripple {
+    animation: none;
+    opacity: 0.2;
+  }
+}
+
 @keyframes reveal-in {
   from {
     opacity: 0;

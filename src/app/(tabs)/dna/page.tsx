@@ -70,12 +70,6 @@ export default async function DnaPage({ searchParams }: { searchParams: Promise<
   const strongest = topAxes(vector, 3);
   const { code } = cineCode(vector);
 
-  const features = await prisma.movieFeature.findMany({
-    where: { featureVersion: FEATURE_VERSION },
-    include: { movie: true },
-    take: 120,
-    orderBy: { generatedAt: "desc" },
-  });
   const [ratings, watched, wantToWatchCount] = await Promise.all([
     prisma.rating.findMany({ where: { userId: user.id } }),
     prisma.watchHistory.findMany({
@@ -87,6 +81,30 @@ export default async function DnaPage({ searchParams }: { searchParams: Promise<
   const ratingByMovie = new Map(ratings.map((r) => [r.movieId, r.score]));
   const masterpieceIds = new Set(ratings.filter((r) => r.masterpiece).map((r) => r.movieId));
   const watchedIds = new Set(watched.map((w) => w.movieId));
+  // Recent catalogue backfills continuously change generatedAt. If the
+  // universe is a plain "latest 120" query, that pushes older watched films
+  // (including masterpieces) out of view between reloads. Pin every title the
+  // user has interacted with, then add a bounded recommendation backdrop.
+  const personalMovieIds = [...new Set([...watchedIds, ...ratings.map((rating) => rating.movieId)])];
+  const [personalFeatures, recommendedFeatures] = await Promise.all([
+    personalMovieIds.length > 0
+      ? prisma.movieFeature.findMany({
+          where: { featureVersion: FEATURE_VERSION, movieId: { in: personalMovieIds } },
+          include: { movie: true },
+          orderBy: { generatedAt: "desc" },
+        })
+      : [],
+    prisma.movieFeature.findMany({
+      where: {
+        featureVersion: FEATURE_VERSION,
+        ...(personalMovieIds.length > 0 ? { movieId: { notIn: personalMovieIds } } : {}),
+      },
+      include: { movie: true },
+      take: 120,
+      orderBy: { generatedAt: "desc" },
+    }),
+  ]);
+  const features = [...recommendedFeatures, ...personalFeatures];
   const nextMilestone = MILESTONES.find((m) => m > watched.length) ?? null;
 
   const points: UniversePoint[] = features.map((f) => ({

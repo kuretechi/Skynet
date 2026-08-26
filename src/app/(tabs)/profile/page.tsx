@@ -9,6 +9,7 @@ import { getMovieProvider } from "@/lib/movies/provider";
 import { SectionHeader } from "@/components/movie-list";
 import { ThemeMenu } from "@/components/theme-menu";
 import { typeInk } from "@/lib/theme";
+import { UiStyleMenu } from "@/components/ui-style-menu";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +57,11 @@ export default async function ProfilePage() {
       <section className="flex flex-col gap-3">
         <SectionHeader title="Theme" />
         <ThemeMenu />
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <SectionHeader title="UI Style" caption="端末ごとに保存" />
+        <UiStyleMenu />
       </section>
 
       <section className="flex flex-col gap-3">

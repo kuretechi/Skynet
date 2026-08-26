@@ -6,7 +6,7 @@ import { WatchlistButton } from "./watchlist-button";
 
 export function SectionHeader({ title, caption }: { title: string; caption?: string }) {
   return (
-    <div className="flex items-baseline justify-between border-b border-[var(--line)] pb-2">
+    <div className="section-header flex items-baseline justify-between border-b border-[var(--line)] pb-2">
       <h2 className="label">{title}</h2>
       {caption ? <span className="text-[10px] text-[var(--muted)]">{caption}</span> : null}
     </div>

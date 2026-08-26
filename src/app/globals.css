@@ -109,6 +109,144 @@ body {
   border-color: var(--line);
 }
 
+/* Optional POP presentation. The palette remains theme-owned; this layer only
+   changes shape, weight and hierarchy so ARCHIVE can remain a true comparison. */
+[data-ui="pop"] body {
+  background-image: radial-gradient(70% 36% at 50% -8%, color-mix(in srgb, var(--accent) 10%, transparent), transparent);
+}
+
+[data-ui="pop"] .grain::after {
+  opacity: calc(var(--grain-opacity) * 0.35);
+}
+
+[data-ui="pop"] .display {
+  font-family: var(--font-geist-sans), "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  font-weight: 750;
+  letter-spacing: -0.025em;
+}
+
+[data-ui="pop"] .label {
+  font-family: var(--font-geist-sans), "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+}
+
+[data-ui="pop"] main {
+  gap: 1.6rem;
+}
+
+[data-ui="pop"] main > section {
+  border: 1px solid color-mix(in srgb, var(--foreground) 13%, var(--line));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  padding: 16px;
+  box-shadow: 0 12px 30px -26px rgba(0, 0, 0, 0.9), inset 0 1px color-mix(in srgb, var(--foreground) 5%, transparent);
+}
+
+[data-ui="pop"] .section-header {
+  border-bottom-width: 2px;
+  padding-bottom: 10px;
+}
+
+[data-ui="pop"] main button,
+[data-ui="pop"] main a[class*="border"] {
+  border-width: 2px;
+  border-radius: 10px;
+  font-weight: 650;
+  transition: transform 140ms ease, background-color 140ms ease, border-color 140ms ease;
+}
+
+[data-ui="pop"] main button:active,
+[data-ui="pop"] main a[class*="border"]:active {
+  transform: scale(0.975);
+}
+
+[data-ui="pop"] main input,
+[data-ui="pop"] main select,
+[data-ui="pop"] main textarea {
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+  padding: 11px 13px;
+}
+
+[data-ui="pop"] main input:focus,
+[data-ui="pop"] main select:focus,
+[data-ui="pop"] main textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+[data-ui="pop"] .ui-style-option {
+  border-radius: 14px;
+}
+
+[data-ui="pop"] .bottom-nav {
+  right: 12px;
+  bottom: 8px;
+  left: 12px;
+  width: auto;
+  max-width: 680px;
+  margin-inline: auto;
+  overflow: visible;
+  border: 2px solid color-mix(in srgb, var(--foreground) 13%, var(--line));
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: 0 16px 38px -18px rgba(0, 0, 0, 0.75);
+}
+
+[data-ui="pop"] .bottom-nav .nav-link {
+  min-height: 68px;
+  justify-content: center;
+  padding-top: 9px;
+  font-weight: 650;
+}
+
+[data-ui="pop"] .bottom-nav .nav-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  transition: transform 160ms ease, background-color 160ms ease, color 160ms ease;
+}
+
+[data-ui="pop"] .bottom-nav .nav-link[aria-current="page"] .nav-icon {
+  background: var(--surface-2);
+}
+
+[data-ui="pop"] .bottom-nav .home-tab .nav-link {
+  transform: translateY(-9px);
+}
+
+[data-ui="pop"] .bottom-nav .home-tab .nav-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  color: var(--background);
+  background: var(--accent);
+  box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--accent) 80%, transparent);
+}
+
+[data-ui="pop"] .bottom-nav .home-tab svg {
+  width: 27px;
+  height: 27px;
+}
+
+[data-ui="pop"] .bottom-nav .home-tab .nav-link[aria-current="page"] .nav-icon {
+  background: var(--accent);
+  transform: scale(1.07);
+}
+
+@media (hover: hover) {
+  [data-ui="pop"] .bottom-nav .nav-link:hover .nav-icon {
+    transform: translateY(-2px);
+    background: var(--surface-2);
+  }
+  [data-ui="pop"] .bottom-nav .home-tab .nav-link:hover .nav-icon {
+    background: var(--accent);
+    transform: scale(1.07) translateY(-1px);
+  }
+}
+
 /* Film grain / vignette used sparingly for the archive feel. */
 .grain::after {
   content: "";

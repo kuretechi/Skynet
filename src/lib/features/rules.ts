@@ -111,48 +111,50 @@ export type RuleSignals = {
   vector: AxisVector;
   matchedGenres: string[];
   matchedKeywords: string[];
+  confidence: number;
+  axisConfidence: AxisVector;
 };
 
 /**
- * Deterministic 8-axis estimate derived from structured metadata only.
- * Used alone when no LLM is configured, and as a prior/corrective otherwise.
+ * Deterministic auxiliary 8-axis estimate derived from structured metadata.
+ * Personal recommendations use factual Content Signatures as their primary signal.
  */
 export function generateRuleFeatures(movie: ProviderMovieDetail): RuleSignals {
-  const vector = zeroVector();
-  for (const axis of AXES) vector[axis] = 0.4;
+  const deltas = zeroVector();
+  const evidence = zeroVector();
 
   const matchedGenres: string[] = [];
   for (const genre of movie.genres) {
     const canonical = canonicalGenre(genre);
     const signal = GENRE_SIGNALS[canonical];
     if (signal) {
-      add(vector, signal);
+      add(deltas, signal);
+      for (const axis of AXES) if (signal[axis] !== undefined) evidence[axis] += 1;
       matchedGenres.push(canonical);
     }
   }
 
-  const haystack = [...movie.keywords, ...(movie.overview ? [movie.overview] : [])]
-    .join(" ")
-    .toLowerCase();
+  const haystack = movie.keywords.join(" ").toLowerCase();
   const matchedKeywords: string[] = [];
   for (const [keyword, signal] of Object.entries(KEYWORD_SIGNALS)) {
     if (haystack.includes(keyword)) {
-      add(vector, signal, 0.8);
+      add(deltas, signal, 0.65);
+      for (const axis of AXES) if (signal[axis] !== undefined) evidence[axis] += 0.65;
       matchedKeywords.push(keyword);
     }
   }
 
-  const runtime = movie.runtime ?? 110;
-  if (runtime >= 150) add(vector, { depth: 0.12, immerse: 0.08, pulse: -0.08 });
-  else if (runtime <= 95) add(vector, { pulse: 0.06, depth: -0.06 });
+  // Normalise accumulating evidence so multi-genre titles do not saturate at 1.
+  const vector = clampVector(AXES.reduce((result, axis) => ({
+    ...result,
+    [axis]: 0.5 + Math.tanh(deltas[axis]) * 0.42,
+  }), {} as AxisVector));
+  const axisConfidence = clampVector(AXES.reduce((result, axis) => ({
+    ...result,
+    [axis]: evidence[axis] === 0 ? 0 : Math.min(0.9, 0.25 + evidence[axis] * 0.16),
+  }), {} as AxisVector));
+  const evidenceCount = matchedGenres.length + matchedKeywords.length;
+  const confidence = Number(Math.min(0.9, evidenceCount === 0 ? 0 : 0.25 + Math.log2(evidenceCount + 1) * 0.16).toFixed(3));
 
-  const year = Number(movie.releaseDate?.slice(0, 4) ?? 0);
-  if (year && year < 1980) add(vector, { depth: 0.1, explore: 0.1, pulse: -0.08 });
-
-  // Low popularity / low vote count reads as "outside the mainstream".
-  if (movie.popularity < 40) add(vector, { explore: 0.12 });
-  if (movie.popularity > 85) add(vector, { explore: -0.1, pulse: 0.05 });
-  if (movie.voteAverage >= 8) add(vector, { depth: 0.06, story: 0.05 });
-
-  return { vector: clampVector(vector), matchedGenres, matchedKeywords };
+  return { vector, matchedGenres, matchedKeywords, confidence, axisConfidence };
 }

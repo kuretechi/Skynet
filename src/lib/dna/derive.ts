@@ -1,19 +1,9 @@
 import { AXES, type AxisVector, clampVector } from "./axes";
 import { bestCineType } from "./cinetype";
+import { preferenceSignal, shrunkPersonalMean } from "@/lib/recommend/personal";
 
 /** Pull towards a neutral 0.5 prior so a handful of ratings cannot extremise the DNA. */
 const PRIOR_STRENGTH = 2.5;
-
-/** Ratings above this count as "liked", below as "disliked". */
-const NEUTRAL_RATING = 2.75;
-
-/**
- * A Masterpiece is the ceiling of the scale: it carries the weight a perfect
- * star rating used to carry, and every star rating now weighs a share of that,
- * so nothing a user can express with stars outranks marking a masterpiece.
- */
-export const MASTERPIECE_WEIGHT = 5 - NEUTRAL_RATING;
-const STAR_SHARE = 0.8;
 
 export type DnaComputation = {
   vector: AxisVector;
@@ -24,7 +14,7 @@ export type DnaComputation = {
 };
 
 /** One rated movie: the movie's feature vector and the score given to it. */
-export type DnaSignal = { vector: AxisVector; score: number; masterpiece?: boolean };
+export type DnaSignal = { vector: AxisVector; score: number; masterpiece?: boolean; featureConfidence?: number };
 
 /**
  * Cinema DNA = watch history + personal ratings + movie feature vectors.
@@ -38,16 +28,17 @@ export function dnaFromSignals(signals: DnaSignal[]): DnaComputation {
   const numerator = AXES.reduce((acc, axis) => ({ ...acc, [axis]: 0 }), {} as AxisVector);
   let weightSum = 0;
 
-  for (const { vector: vec, score, masterpiece } of signals) {
-    const signed = masterpiece
-      ? MASTERPIECE_WEIGHT
-      : (score - NEUTRAL_RATING) * STAR_SHARE;
-    const weight = Math.abs(signed);
+  const personalMean = shrunkPersonalMean(signals.map((signal) => signal.score));
+  let confidenceTotal = 0;
+  for (const { vector: vec, score, masterpiece, featureConfidence = 1 } of signals) {
+    const signed = preferenceSignal(score, personalMean, masterpiece);
+    const weight = Math.abs(signed) * featureConfidence;
     if (weight === 0) continue;
     for (const axis of AXES) {
       numerator[axis] += weight * (signed > 0 ? vec[axis] : 1 - vec[axis]);
     }
     weightSum += weight;
+    confidenceTotal += featureConfidence;
   }
 
   const vector = clampVector(
@@ -61,7 +52,9 @@ export function dnaFromSignals(signals: DnaSignal[]): DnaComputation {
   );
 
   const ratingCount = signals.length;
-  const confidence = Number(Math.min(1, ratingCount / 20).toFixed(2));
+  const evidenceConfidence = ratingCount / (ratingCount + 8);
+  const featureConfidence = ratingCount ? confidenceTotal / ratingCount : 0;
+  const confidence = Number(Math.min(1, evidenceConfidence * featureConfidence).toFixed(2));
   const match = bestCineType(vector);
 
   return {

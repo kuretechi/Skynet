@@ -16,6 +16,7 @@ const parseArray = (json: string): string[] => {
 
 export const movieRowToDetail = (movie: Movie): ProviderMovieDetail => ({
   providerId: movie.providerId,
+  mediaType: movie.mediaType as "movie" | "tv",
   title: movie.title,
   originalTitle: movie.originalTitle ?? undefined,
   releaseDate: movie.releaseDate ?? undefined,
@@ -26,13 +27,38 @@ export const movieRowToDetail = (movie: Movie): ProviderMovieDetail => ({
   voteAverage: 0,
   voteCount: 0,
   genres: parseArray(movie.genresJson),
+  genreIds: parseArray(movie.genreIdsJson),
   runtime: movie.runtime ?? undefined,
   country: movie.country ?? undefined,
+  countries: parseArray(movie.countriesJson),
   language: movie.language ?? undefined,
   director: movie.director ?? undefined,
+  directorId: movie.directorId ?? undefined,
+  writers: parseEntities(movie.writersJson),
   cast: parseArray(movie.castJson),
+  castIds: parseArray(movie.castIdsJson),
   keywords: parseArray(movie.keywordsJson),
+  keywordIds: parseArray(movie.keywordIdsJson),
+  companies: parseEntities(movie.companiesJson),
+  collection: movie.collectionId
+    ? { id: movie.collectionId, name: movie.collectionName ?? movie.collectionId }
+    : undefined,
 });
+
+const parseEntities = (json: string): { id?: string; name: string }[] => {
+  try {
+    const value = JSON.parse(json) as unknown;
+    if (!Array.isArray(value)) return [];
+    return value.flatMap((entry) => {
+      if (!entry || typeof entry !== "object") return [];
+      const record = entry as Record<string, unknown>;
+      if (typeof record.name !== "string") return [];
+      return [{ id: record.id == null ? undefined : String(record.id), name: record.name }];
+    });
+  } catch {
+    return [];
+  }
+};
 
 export const movieGenres = (movie: Movie) => parseArray(movie.genresJson);
 export const movieKeywords = (movie: Movie) => parseArray(movie.keywordsJson);
@@ -47,6 +73,7 @@ export const backdropUrl = (movie: Pick<Movie, "backdropPath">) =>
 const upsertFromDetail = async (detail: ProviderMovieDetail): Promise<Movie> => {
   const provider = getMovieProvider();
   const data = {
+    mediaType: detail.mediaType ?? "movie",
     title: detail.title,
     originalTitle: detail.originalTitle,
     overview: detail.overview,
@@ -59,13 +86,28 @@ const upsertFromDetail = async (detail: ProviderMovieDetail): Promise<Movie> => 
     backdropPath: detail.backdropPath,
     popularity: detail.popularity,
     genresJson: JSON.stringify(detail.genres),
+    genreIdsJson: JSON.stringify(detail.genreIds ?? []),
     keywordsJson: JSON.stringify(detail.keywords),
+    keywordIdsJson: JSON.stringify(detail.keywordIds ?? []),
     castJson: JSON.stringify(detail.cast),
+    castIdsJson: JSON.stringify(detail.castIds ?? []),
+    directorId: detail.directorId,
+    writersJson: JSON.stringify(detail.writers ?? []),
+    companiesJson: JSON.stringify(detail.companies ?? []),
+    countriesJson: JSON.stringify(detail.countries ?? (detail.country ? [detail.country] : [])),
+    collectionId: detail.collection?.id,
+    collectionName: detail.collection?.name,
     fetchedAt: new Date(),
   };
 
   const movie = await prisma.movie.upsert({
-    where: { provider_providerId: { provider: provider.name, providerId: detail.providerId } },
+    where: {
+      provider_mediaType_providerId: {
+        provider: provider.name,
+        mediaType: detail.mediaType ?? "movie",
+        providerId: detail.providerId,
+      },
+    },
     update: data,
     create: { provider: provider.name, providerId: detail.providerId, ...data },
   });
@@ -94,7 +136,7 @@ const upsertFromDetail = async (detail: ProviderMovieDetail): Promise<Movie> => 
 export const ensureMovieByProviderId = cache(async (providerId: string): Promise<Movie | null> => {
   const provider = getMovieProvider();
   const existing = await prisma.movie.findUnique({
-    where: { provider_providerId: { provider: provider.name, providerId } },
+    where: { provider_mediaType_providerId: { provider: provider.name, mediaType: "movie", providerId } },
   });
   const stale = existing && Date.now() - existing.fetchedAt.getTime() > CACHE_TTL_MS;
   if (existing && !stale) return existing;
@@ -114,7 +156,7 @@ export async function ensureMoviesByProviderIds(providerIds: readonly string[]):
   if (providerIds.length === 0) return [];
   const provider = getMovieProvider();
   const existing = await prisma.movie.findMany({
-    where: { provider: provider.name, providerId: { in: [...new Set(providerIds)] } },
+    where: { provider: provider.name, mediaType: "movie", providerId: { in: [...new Set(providerIds)] } },
   });
   const cachedByProviderId = new Map(existing.map((movie) => [movie.providerId, movie]));
 

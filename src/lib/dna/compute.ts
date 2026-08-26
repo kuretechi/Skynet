@@ -21,14 +21,16 @@ export async function computeCinemaDna(userId: string): Promise<DnaComputation> 
       vector: featureVector(feature),
       score: rating.score,
       masterpiece: rating.masterpiece,
+      featureConfidence: feature.confidence,
     });
   }
 
+  const computed = dnaFromSignals(signals);
   // Ratings whose features are missing still count towards the rating count.
   return {
-    ...dnaFromSignals(signals),
+    ...computed,
     ratingCount: ratings.length,
-    confidence: Number(Math.min(1, ratings.length / 20).toFixed(2)),
+    confidence: computed.confidence,
   };
 }
 

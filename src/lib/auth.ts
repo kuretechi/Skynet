@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
+import { FEATURE_VERSION } from "@/lib/features/generate";
+import { refreshCinemaDna } from "@/lib/dna/compute";
 
 const COOKIE = "pc_session";
 const MAX_AGE = 60 * 60 * 24 * 30;
@@ -47,7 +49,13 @@ export async function getSessionUserId(): Promise<string | null> {
 export const getCurrentUser = cache(async () => {
   const userId = await getSessionUserId();
   if (!userId) return null;
-  return prisma.user.findUnique({ where: { id: userId }, include: { dna: true } });
+  const user = await prisma.user.findUnique({ where: { id: userId }, include: { dna: true } });
+  if (!user) return null;
+  if (user.dna?.featureVersion === FEATURE_VERSION) return user;
+  const ratingCount = await prisma.rating.count({ where: { userId } });
+  if (ratingCount === 0) return { ...user, dna: null };
+  const dna = await refreshCinemaDna(userId);
+  return { ...user, dna };
 });
 
 export async function requireUser() {

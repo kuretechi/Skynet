@@ -13,7 +13,7 @@ const numberFromEnv = (name, fallback, min, max) => {
 let page = numberFromEnv("BOOTSTRAP_START_PAGE", 1, 1, 500);
 const batches = numberFromEnv("BOOTSTRAP_BATCHES", 10, 1, 50);
 const pages = numberFromEnv("BOOTSTRAP_PAGES_PER_BATCH", 1, 1, 2);
-const aiLimit = numberFromEnv("BOOTSTRAP_AI_LIMIT", 10, 0, 20);
+const derivedLimit = numberFromEnv("BOOTSTRAP_DERIVED_LIMIT", 50, 0, 100);
 const target = numberFromEnv("BOOTSTRAP_TARGET", 1000, 1, 2000);
 const ingest = process.env.BOOTSTRAP_INGEST !== "false";
 
@@ -24,7 +24,7 @@ for (let batch = 1; batch <= batches; batch += 1) {
       authorization: `Bearer ${secret}`,
       "content-type": "application/json",
     },
-    body: JSON.stringify({ page, pages, aiLimit, target, ingest }),
+    body: JSON.stringify({ page, pages, derivedLimit, target, ingest }),
   });
   const report = await response.json();
   if (!response.ok) {
@@ -35,12 +35,8 @@ for (let batch = 1; batch <= batches; batch += 1) {
 
   console.log(JSON.stringify({ batch, ...report }));
   page = report.nextPage;
-  if (report.aiFailed > 0) {
-    console.warn(`Stopped after an AI failure. Resume later with BOOTSTRAP_START_PAGE=${page}.`);
-    break;
-  }
-  if (report.catalogueRemaining === 0 && report.rulesOnlyRemaining === 0 && report.unscoredRemaining === 0) {
-    console.log("Catalogue target and AI scoring are complete.");
+  if (report.catalogueRemaining === 0 && report.signaturesRemaining === 0 && report.experienceVectorsRemaining === 0) {
+    console.log("Catalogue target and deterministic feature generation are complete.");
     break;
   }
 

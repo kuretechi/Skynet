@@ -39,6 +39,7 @@ model User {
 model Movie {
   id            String   @id @default(cuid())
   provider      String   @default("tmdb")
+  mediaType     String   @default("movie")
   providerId    String
   title         String
   originalTitle String?
@@ -52,11 +53,21 @@ model Movie {
   backdropPath  String?
   popularity    Float    @default(0)
   genresJson    String   @default("[]")
+  genreIdsJson  String   @default("[]")
   keywordsJson  String   @default("[]")
+  keywordIdsJson String  @default("[]")
   castJson      String   @default("[]")
+  castIdsJson   String   @default("[]")
+  directorId    String?
+  writersJson   String   @default("[]")
+  companiesJson String   @default("[]")
+  countriesJson String   @default("[]")
+  collectionId  String?
+  collectionName String?
   fetchedAt     DateTime @default(now())
 
   features        MovieFeature[]
+  contentSignatures MovieContentSignature[]
   externalRatings ExternalRating[]
   ratings         Rating[]
   watchHistory    WatchHistory[]
@@ -65,9 +76,30 @@ model Movie {
   watchRooms      WatchRoom[]
   notes           MovieNote[]
 
-  @@unique([provider, providerId])
+  @@unique([provider, mediaType, providerId])
   @@index([popularity])
   @@index([provider, fetchedAt])
+}
+
+/// Versioned, factual metadata signature used by the personal recommender.
+/// It deliberately contains no global quality score and no user data.
+model MovieContentSignature {
+  id               String   @id @default(cuid())
+  movieId          String
+  signatureVersion String
+  metadataHash     String
+  themeJson         String   @default("{}")
+  creatorsJson      String   @default("{}")
+  contextJson       String   @default("{}")
+  formatJson        String   @default("{}")
+  relationsJson     String   @default("{}")
+  completeness      Float    @default(0)
+  generatedAt       DateTime @default(now())
+
+  movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
+
+  @@unique([movieId, signatureVersion])
+  @@index([signatureVersion, generatedAt])
 }
 
 /// External rating signals kept explicitly separate from the community score.
@@ -100,6 +132,8 @@ model MovieFeature {
   depth           Float
   rawFeaturesJson String   @default("{}")
   generatorType   String
+  confidence      Float    @default(0)
+  axisConfidenceJson String @default("{}")
   generatedAt     DateTime @default(now())
 
   movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)

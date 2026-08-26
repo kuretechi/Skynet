@@ -338,7 +338,7 @@ export function TasteUniverse({
           (point.watched ? 2.6 + (point.rating ?? 3) * 0.7 : 2.8) * at.depth * pointScale;
         // Masterpieces are drawn as a haloed star instead of a dot, so the films
         // that define the taste read at a glance.
-        const star = point.masterpiece ? starPoints(at.x, at.y, r * 1.9) : null;
+        const star = point.masterpiece ? starPoints(0, 0, r * 1.9) : null;
         return (
           <g
             key={point.id}
@@ -355,11 +355,15 @@ export function TasteUniverse({
             aria-label={point.title}
           >
             {star ? (
-              <>
+              // Keep the animated scale in point-local coordinates. Updating
+              // cx/cy and scaling the same SVG node every animation frame can
+              // make WebKit reuse a stale transform origin after resize or
+              // navigation, which leaves the sonar rings detached or huge.
+              <g transform={`translate(${at.x} ${at.y})`}>
                 <circle
                   className="masterpiece-ripple"
-                  cx={at.x}
-                  cy={at.y}
+                  cx={0}
+                  cy={0}
                   r={r * 1.5}
                   fill="none"
                   stroke={MASTERPIECE_COLOR}
@@ -367,16 +371,16 @@ export function TasteUniverse({
                 />
                 <circle
                   className="masterpiece-ripple masterpiece-ripple-delayed"
-                  cx={at.x}
-                  cy={at.y}
+                  cx={0}
+                  cy={0}
                   r={r * 1.5}
                   fill="none"
                   stroke={MASTERPIECE_COLOR}
                   strokeWidth={0.7}
                 />
                 <circle
-                  cx={at.x}
-                  cy={at.y}
+                  cx={0}
+                  cy={0}
                   r={r * 2.6}
                   fill={MASTERPIECE_COLOR}
                   fillOpacity={0.08 + at.depth * 0.08}
@@ -389,7 +393,7 @@ export function TasteUniverse({
                   strokeWidth={1.1}
                   strokeLinejoin="round"
                 />
-              </>
+              </g>
             ) : (
               <circle
                 cx={at.x}
@@ -407,9 +411,16 @@ export function TasteUniverse({
         );
       })}
 
-      <text x={12} y={size - 8} fontSize={8} letterSpacing={1.4} fill="var(--muted)">
-        ○ RECOMMENDED　● WATCHED　
-        <tspan fill={MASTERPIECE_COLOR}>★ MASTERPIECE</tspan>
+      <text
+        x={center}
+        y={size - 8}
+        textAnchor="middle"
+        fontSize={8}
+        letterSpacing={1.2}
+      >
+        <tspan fill="var(--ink-55)">○ RECOMMENDED</tspan>
+        <tspan fill="var(--accent)">　● WATCHED</tspan>
+        <tspan fill={MASTERPIECE_COLOR}>　★ MASTERPIECE</tspan>
       </text>
     </svg>
   );

@@ -74,13 +74,16 @@ export default async function DnaPage({ searchParams }: { searchParams: Promise<
     prisma.rating.findMany({ where: { userId: user.id } }),
     prisma.watchHistory.findMany({
       where: { userId: user.id },
-      select: { movieId: true },
+      select: { movieId: true, movie: { select: { runtime: true } } },
     }),
     prisma.shelfMovie.count({ where: { shelf: { userId: user.id, kind: "want_to_watch" } } }),
   ]);
   const ratingByMovie = new Map(ratings.map((r) => [r.movieId, r.score]));
   const masterpieceIds = new Set(ratings.filter((r) => r.masterpiece).map((r) => r.movieId));
   const watchedIds = new Set(watched.map((w) => w.movieId));
+  const runtimeByMovie = new Map(watched.map((entry) => [entry.movieId, entry.movie.runtime]));
+  const screenTimeMinutes = [...runtimeByMovie.values()].reduce<number>((sum, runtime) => sum + (runtime ?? 0), 0);
+  const screenTime = `${Math.floor(screenTimeMinutes / 60)}h ${screenTimeMinutes % 60}m`;
   // Recent catalogue backfills continuously change generatedAt. If the
   // universe is a plain "latest 120" query, that pushes older watched films
   // (including masterpieces) out of view between reloads. Pin every title the
@@ -144,10 +147,11 @@ export default async function DnaPage({ searchParams }: { searchParams: Promise<
               : "全マイルストーン達成"
           }
         />
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatCard label="WATCHED" value={`${watched.length}`} unit="本" strong />
           <StatCard label="MASTERPIECE" value={`${masterpieceIds.size}`} unit="本" />
           <StatCard label="WANT TO WATCH" value={`${wantToWatchCount}`} unit="本" />
+          <StatCard label="SCREEN TIME" value={screenTime} unit="" />
         </div>
       </section>
 

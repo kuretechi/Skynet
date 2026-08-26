@@ -19,7 +19,7 @@ import { CarouselSkeleton, HeroSkeleton, SectionSkeleton } from "@/components/sk
 export const dynamic = "force-dynamic";
 
 /** Shared by the two sections it feeds, so the work happens once per request. */
-const homeRecommendations = cache((userId: string) => recommendForUser(userId, { limit: 7 }));
+const homeRecommendations = cache((userId: string) => recommendForUser(userId, { limit: 30, poolSize: 60 }));
 
 /**
  * The page shell only needs the signed-in user, so it is sent immediately and
@@ -140,11 +140,18 @@ async function BecauseYouLoved({ userId }: { userId: string }) {
   ]);
   const [, ...rest] = recommendations;
   if (rest.length === 0) return null;
+  const initial = rest.slice(0, 9);
+  const expanded = rest.slice(9);
 
   return (
     <section className="flex flex-col gap-4">
       <SectionHeader title="Because You Loved…" />
-      <ScoredMovieCarousel items={rest} watchlist={watchlist} />
+      <ScoredMovieCarousel items={initial} watchlist={watchlist} />
+      {expanded.length > 0 ? <details className="group border-t border-[var(--line)] pt-3">
+        <summary className="label cursor-pointer list-none text-center text-[var(--accent)] group-open:mb-4">
+          <span className="group-open:hidden">EXPAND · MORE RECOMMENDATIONS</span><span className="hidden group-open:inline">COLLAPSE</span>
+        </summary><ScoredMovieCarousel items={expanded} watchlist={watchlist} />
+      </details> : null}
     </section>
   );
 }

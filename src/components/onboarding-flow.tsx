@@ -78,7 +78,9 @@ export function OnboardingFlow({ initialRatedCount, name }: { initialRatedCount:
 
       <MovieSearch
         mode="rate"
-        onRated={(providerId) => setRated((prev) => (prev.includes(providerId) ? prev : [...prev, providerId]))}
+        onRated={(providerId, score) => setRated((prev) => score === null
+          ? prev.filter((id) => id !== providerId)
+          : prev.includes(providerId) ? prev : [...prev, providerId])}
         placeholder="観たことのある映画を検索"
       />
 

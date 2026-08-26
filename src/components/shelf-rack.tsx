@@ -142,7 +142,7 @@ export function ShelfRack({ items }: { items: ShelfItem[] }) {
   const current = items[focused];
 
   return (
-    <div className="cabinet -mx-5 overflow-hidden">
+    <div className="shelf-cabinet cabinet -mx-5 overflow-hidden">
       <div className="archive-selection mx-auto flex h-[76px] max-w-[270px] items-center gap-3 px-3 py-2">
         <div className="relative h-[58px] w-[39px] shrink-0 overflow-hidden rounded-[1px] bg-[var(--surface-2)]">
           {current?.posterUrl ? (
@@ -192,7 +192,7 @@ export function ShelfRack({ items }: { items: ShelfItem[] }) {
                 }}
               >
                 {item.posterUrl ? (
-                  <span aria-hidden className="pointer-events-none absolute inset-0">
+                  <span aria-hidden className="pointer-events-none absolute inset-[2px] overflow-hidden rounded-[1px]">
                     <Image
                       src={item.posterUrl}
                       alt=""
@@ -211,7 +211,7 @@ export function ShelfRack({ items }: { items: ShelfItem[] }) {
                   {item.year?.slice(2) ?? ""}
                 </span>
                 <span
-                  className="archive-label relative vertical-text max-h-40 overflow-hidden px-1.5 py-2 text-[11px] tracking-wide"
+                  className="archive-label relative vertical-text h-40 min-h-40 max-h-40 shrink-0 overflow-hidden px-1.5 py-2 text-[11px] tracking-wide"
                 >
                   {item.title}
                 </span>

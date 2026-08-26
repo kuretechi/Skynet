@@ -16,19 +16,17 @@ export type ShelfItem = {
 
 const SPINE_WIDTH = 46;
 const CASE_HEIGHT = 224;
-const COVER_WIDTH = 132;
-const MAX_TILT = 42;
-const MAX_LIFT = 14;
-const MAX_DEPTH = 90;
-const MAX_SCALE = 0.14;
-const DIM = 0.42;
-const GAP = 3;
+const MAX_LIFT = 11;
+const MAX_DEPTH = 42;
+const MAX_SCALE = 0.065;
+const DIM = 0.76;
+const GAP = 6;
 const SLOT = SPINE_WIDTH + GAP;
 
 /**
- * VHS rack standing in a cabinet. Each item is a real 3D case — spine facing
- * the room, cover hinged on the spine's outer edge — and only the case nearest
- * the rack's centre swings open, lit and named on the shelf plate below.
+ * Cinema archive rack. The centred case lifts forward while its cover appears
+ * in the cabinet plate above. Keeping the cover out of the 3D row prevents an
+ * opened case from passing through either neighbour on narrow screens.
  */
 export function ShelfRack({ items }: { items: ShelfItem[] }) {
   const scroller = useRef<HTMLDivElement>(null);
@@ -96,7 +94,7 @@ export function ShelfRack({ items }: { items: ShelfItem[] }) {
         const open = Math.max(0, 1 - distance);
         node.style.transform =
           `translateY(${-MAX_LIFT * open}px) translateZ(${MAX_DEPTH * open}px)` +
-          ` rotateY(${-MAX_TILT * open}deg) scale(${1 + MAX_SCALE * open})`;
+          ` scale(${1 + MAX_SCALE * open})`;
         // Dimming lives on the faces: a filter on the case itself would
         // flatten its 3D children.
         node.style.setProperty("--case-dim", String(DIM + (1 - DIM) * open));
@@ -145,9 +143,23 @@ export function ShelfRack({ items }: { items: ShelfItem[] }) {
 
   return (
     <div className="cabinet -mx-5 overflow-hidden">
+      <div className="archive-selection mx-auto flex h-[76px] max-w-[270px] items-center gap-3 px-3 py-2">
+        <div className="relative h-[58px] w-[39px] shrink-0 overflow-hidden rounded-[1px] bg-[var(--surface-2)]">
+          {current?.posterUrl ? (
+            <Image src={current.posterUrl} alt="" fill sizes="39px" className="object-cover" />
+          ) : null}
+        </div>
+        <div className="min-w-0">
+          <span className="label text-[9px] text-[var(--accent)]">NOW SELECTED</span>
+          <p className="mt-1 line-clamp-2 text-xs leading-snug">{current?.title}</p>
+          <p className="mt-1 font-mono text-[9px] text-[var(--muted)]">
+            {current?.year ?? "----"}{current?.rating ? ` · ${current.rating.toFixed(1)}` : ""}
+          </p>
+        </div>
+      </div>
       <div
         ref={scroller}
-        className="no-scrollbar relative overflow-x-auto px-5 pt-14 pb-1"
+        className="no-scrollbar relative overflow-x-auto px-5 pt-8 pb-1"
         style={{ perspective: "900px", perspectiveOrigin: "50% 45%" }}
       >
         <ul ref={list} className="flex items-end" style={{ gap: GAP, transformStyle: "preserve-3d" }}>
@@ -169,14 +181,14 @@ export function ShelfRack({ items }: { items: ShelfItem[] }) {
                 href={`/movie/${item.providerId}`}
                 prefetch={false}
                 aria-label={item.title}
-                className="spine-texture absolute inset-0 flex flex-col items-center justify-between overflow-hidden rounded-[2px] py-3"
+                className="archive-spine spine-texture absolute inset-0 flex flex-col items-center justify-between overflow-hidden rounded-[2px] py-3"
                 style={{
                   background: spineColor(item.title),
                   backfaceVisibility: "hidden",
                   filter: "brightness(var(--case-dim, 1))",
                   boxShadow:
-                    "inset 0 0 0 1px rgba(255,255,255,0.08), inset 2px 0 4px -2px rgba(255,255,255,0.35)," +
-                    " 0 18px 22px -16px rgba(0,0,0,0.9)",
+                    "inset 0 0 0 1px rgba(255,255,255,0.2), inset 3px 0 5px -3px rgba(255,255,255,0.65)," +
+                    " inset -3px 0 5px -3px rgba(0,0,0,0.55), 0 16px 24px -17px rgba(0,0,0,0.8)",
                 }}
               >
                 {item.posterUrl ? (
@@ -187,9 +199,9 @@ export function ShelfRack({ items }: { items: ShelfItem[] }) {
                       fill
                       sizes="46px"
                       className="object-cover"
-                      style={{ filter: "blur(4px) saturate(0.85)", opacity: 0.75, transform: "scale(1.3)" }}
+                      style={{ filter: "blur(2.5px) saturate(1.08)", opacity: 0.9, transform: "scale(1.24)" }}
                     />
-                    <span className="absolute inset-0 bg-gradient-to-r from-black/65 via-black/15 to-black/70" />
+                    <span className="absolute inset-0 bg-gradient-to-r from-black/40 via-black/5 to-black/45" />
                   </span>
                 ) : null}
                 <span
@@ -199,8 +211,7 @@ export function ShelfRack({ items }: { items: ShelfItem[] }) {
                   {item.year?.slice(2) ?? ""}
                 </span>
                 <span
-                  className="relative vertical-text max-h-40 overflow-hidden text-[11px] tracking-wide"
-                  style={{ color: "var(--on-media)", textShadow: "0 1px 3px rgba(0,0,0,0.85)" }}
+                  className="archive-label relative vertical-text max-h-40 overflow-hidden px-1.5 py-2 text-[11px] tracking-wide"
                 >
                   {item.title}
                 </span>
@@ -218,33 +229,6 @@ export function ShelfRack({ items }: { items: ShelfItem[] }) {
                 }}
               />
 
-              <div
-                aria-hidden
-                className="absolute top-0 left-full overflow-hidden rounded-[2px] bg-[var(--surface-2)]"
-                style={{
-                  width: COVER_WIDTH,
-                  height: CASE_HEIGHT,
-                  transformOrigin: "left center",
-                  transform: "rotateY(90deg)",
-                  backfaceVisibility: "hidden",
-                  filter: "brightness(var(--case-dim, 1))",
-                  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.1)",
-                }}
-              >
-                {item.posterUrl ? (
-                  <Image src={item.posterUrl} alt="" fill sizes="150px" className="object-cover" />
-                ) : (
-                  <div
-                    className="spine-texture flex h-full w-full flex-col justify-end p-3"
-                    style={{ background: spineColor(item.title) }}
-                  >
-                    <span className="display text-sm leading-tight" style={{ color: "var(--on-media)" }}>
-                      {item.title}
-                    </span>
-                  </div>
-                )}
-                <span className="absolute inset-0 bg-gradient-to-l from-black/55 to-transparent" />
-              </div>
             </li>
           ))}
           <li ref={tail} aria-hidden className="shrink-0" style={{ height: CASE_HEIGHT }} />

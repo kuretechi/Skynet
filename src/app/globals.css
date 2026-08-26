@@ -122,13 +122,50 @@ body {
 
 .spine-texture {
   background-image: linear-gradient(
-      100deg,
-      rgba(255, 255, 255, 0.06) 0%,
-      rgba(255, 255, 255, 0) 22%,
-      rgba(0, 0, 0, 0.25) 60%,
-      rgba(0, 0, 0, 0.45) 100%
+      90deg,
+      rgba(255, 255, 255, 0.18) 0%,
+      rgba(255, 255, 255, 0.04) 16%,
+      rgba(0, 0, 0, 0.08) 62%,
+      rgba(0, 0, 0, 0.28) 100%
     ),
-    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0 2px, rgba(0, 0, 0, 0) 2px 6px);
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035) 0 1px, rgba(0, 0, 0, 0.025) 1px 3px);
+}
+
+.archive-spine::before {
+  content: "";
+  position: absolute;
+  inset: 3px 2px;
+  pointer-events: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.28);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.38);
+  opacity: 0.8;
+  z-index: 1;
+}
+
+.archive-spine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 28%, rgba(255, 255, 255, 0.12) 42%, transparent 56%);
+  opacity: calc(var(--case-open, 0) * 0.9);
+  z-index: 1;
+}
+
+.archive-label {
+  z-index: 2;
+  color: #28251f;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.25), transparent 22%, rgba(73, 61, 45, 0.07)),
+    #e9dfca;
+  border: 1px solid rgba(54, 46, 36, 0.22);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), inset 0 0 8px rgba(90, 67, 41, 0.08);
+  text-shadow: none;
+}
+
+.archive-selection {
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--surface-2) 86%, transparent) 18% 82%, transparent);
 }
 
 .vertical-text {
@@ -209,19 +246,17 @@ body {
 .cabinet {
   position: relative;
   background:
-    radial-gradient(120% 70% at 50% 0%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 62%),
-    linear-gradient(180deg, color-mix(in srgb, var(--foreground) 5%, var(--background)), var(--background) 78%);
+    radial-gradient(100% 60% at 50% 0%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 68%),
+    repeating-linear-gradient(92deg, rgba(255,255,255,0.018) 0 1px, transparent 1px 18px),
+    linear-gradient(180deg, color-mix(in srgb, var(--foreground) 8%, var(--background)), var(--background) 82%);
   border-top: 1px solid var(--line);
 }
 
 .shelf-board {
-  height: 14px;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--foreground) 22%, var(--background)),
-    color-mix(in srgb, var(--foreground) 7%, var(--background)) 45%,
-    var(--background)
-  );
+  height: 16px;
+  background:
+    repeating-linear-gradient(96deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 14px),
+    linear-gradient(180deg, color-mix(in srgb, var(--foreground) 28%, var(--background)), color-mix(in srgb, var(--foreground) 9%, var(--background)) 48%, var(--background));
   box-shadow:
     inset 0 8px 12px -10px rgba(0, 0, 0, 0.9),
     0 10px 16px -12px rgba(0, 0, 0, 0.8);

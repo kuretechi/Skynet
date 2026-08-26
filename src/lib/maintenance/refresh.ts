@@ -12,6 +12,9 @@ import { closeStaleRooms, purgeOldRooms } from "@/lib/rooms/service";
 import { getOrCreateContentSignaturesMany, regenerateContentSignature } from "@/lib/signatures/generate";
 
 const INGEST_PER_SOURCE = 20;
+const DISCOVER_INGEST_LIMIT = 10;
+const DISCOVER_GENRE_IDS = ["28", "12", "16", "35", "80", "18", "10751", "14", "27", "9648", "10749", "878", "53", "99"] as const;
+const DISCOVER_COUNTRIES = ["JP", "US", "GB", "KR", "FR", "CN", "HK", "DE", "IT", "ES", "IN", "CA", "AU"] as const;
 
 export type RefreshReport = {
   ingested: number;
@@ -27,13 +30,20 @@ export type RefreshReport = {
 /** Metadata upkeep plus deterministic derived data; no external AI is called. */
 export async function runCatalogueRefresh(): Promise<RefreshReport> {
   const provider = getMovieProvider();
-  const [nowPlaying, popular] = await Promise.all([
+  const day = Math.floor(Date.now() / 86_400_000);
+  const segment = {
+    genreIds: [DISCOVER_GENRE_IDS[day % DISCOVER_GENRE_IDS.length]],
+    country: DISCOVER_COUNTRIES[Math.floor(day / DISCOVER_GENRE_IDS.length) % DISCOVER_COUNTRIES.length],
+  };
+  const [nowPlaying, popular, discovered] = await Promise.all([
     provider.nowPlaying().catch(() => []),
     provider.popular().catch(() => []),
+    provider.discover({ ...segment, page: 1 }).catch(() => []),
   ]);
   const providerIds = [...new Set([
     ...nowPlaying.slice(0, INGEST_PER_SOURCE),
     ...popular.slice(0, INGEST_PER_SOURCE),
+    ...discovered.slice(0, DISCOVER_INGEST_LIMIT),
   ].map((summary) => summary.providerId))];
   const ingested = await ensureMoviesByProviderIds(providerIds);
   const [signatures, vectors, refreshed] = await Promise.all([

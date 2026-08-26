@@ -143,14 +143,18 @@ export class TmdbMovieProvider implements MovieProvider {
   async discover(query: DiscoverQuery): Promise<ProviderMovieSummary[]> {
     const genreNames = await this.genres();
     const byName = new Map([...genreNames].map(([id, name]) => [name, id]));
+    const genreIds = query.genreIds?.length
+      ? query.genreIds
+      : query.genres?.map((genre) => byName.get(genre)).filter((id): id is number => Boolean(id)).map(String);
     const data = await this.tryRequest<{ results: TmdbMovie[] }>("/discover/movie", {
       page: query.page ?? 1,
       region: this.region,
       sort_by: "popularity.desc",
-      with_genres: query.genres?.map((g) => byName.get(g)).filter(Boolean).join(","),
+      with_genres: genreIds?.join(","),
       "primary_release_date.gte": query.yearFrom ? `${query.yearFrom}-01-01` : undefined,
       "primary_release_date.lte": query.yearTo ? `${query.yearTo}-12-31` : undefined,
       with_origin_country: query.country,
+      "with_runtime.gte": query.runtimeMin,
       "with_runtime.lte": query.runtimeMax,
     });
     return (data?.results ?? []).map((m) => this.toSummary(m, genreNames));

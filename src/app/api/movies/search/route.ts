@@ -1,14 +1,24 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getMovieProvider } from "@/lib/movies/provider";
-import { movieGenres, posterUrl, searchMovies } from "@/lib/movies/repository";
+import { ensureMoviesByProviderIds, movieGenres, posterUrl } from "@/lib/movies/repository";
 import { getMood } from "@/lib/recommend/moods";
 import { getUserTasteContext, scoreMoviesForUser } from "@/lib/recommend/engine";
 
 const MAX_QUERY_LENGTH = 200;
 const RESULT_LIMIT = 40;
+const LOCAL_RESULT_FLOOR = 12;
+const ON_DEMAND_INGEST_LIMIT = 12;
 type Sort = "for-you" | "match" | "release";
+
+const TMDB_GENRE_IDS: Record<string, string> = {
+  "アクション": "28", "アドベンチャー": "12", "アニメーション": "16", "コメディ": "35",
+  "犯罪": "80", "ドラマ": "18", "ファミリー": "10751", "ファンタジー": "14",
+  "ホラー": "27", "ミステリー": "9648", "ロマンス": "10749", "サイエンスフィクション": "878",
+  "スリラー": "53", "ドキュメンタリー": "99",
+};
 
 const textContains = (value: string) =>
   /^postgres(ql)?:\/\//.test(process.env.DATABASE_URL ?? "")
@@ -77,6 +87,7 @@ export async function GET(request: Request) {
   const yearTo = numberParam(params, "yearTo", 9999);
   const runtimeMin = numberParam(params, "runtimeMin", 0);
   const runtimeMax = numberParam(params, "runtimeMax", 9999);
+  const genreId = TMDB_GENRE_IDS[genre];
   if (query.length > MAX_QUERY_LENGTH) return NextResponse.json({ error: "QUERY_TOO_LONG" }, { status: 400 });
 
   const user = await getCurrentUser();
@@ -86,28 +97,68 @@ export async function GET(request: Request) {
         ...(await prisma.shelfMovie.findMany({ where: { shelf: { userId: user.id, kind: "watched" } }, select: { movieId: true } })).map((row) => row.movieId),
       ])
     : new Set<string>();
-  const filters = {
-    ...(yearFrom || yearTo < 9999 ? {
-      releaseDate: { gte: yearFrom ? `${yearFrom}-01-01` : undefined, lte: yearTo < 9999 ? `${yearTo}-12-31` : undefined },
-    } : {}),
-    ...(runtimeMin || runtimeMax < 9999 ? {
-      runtime: { gte: runtimeMin || undefined, lte: runtimeMax < 9999 ? runtimeMax : undefined },
-    } : {}),
-    ...(genre ? { genresJson: textContains(genre) } : {}),
-    ...(country ? { country } : {}),
-    ...(watchedIds.size ? { id: { notIn: [...watchedIds] } } : {}),
-  };
-  const where = {
-    ...filters,
-    ...(query ? { OR: [
+  const filters: Prisma.MovieWhereInput[] = [];
+  if (yearFrom || yearTo < 9999) {
+    filters.push({ releaseDate: { gte: yearFrom ? `${yearFrom}-01-01` : undefined, lte: yearTo < 9999 ? `${yearTo}-12-31` : undefined } });
+  }
+  if (runtimeMin || runtimeMax < 9999) {
+    filters.push({ runtime: { gte: runtimeMin || undefined, lte: runtimeMax < 9999 ? runtimeMax : undefined } });
+  }
+  if (genre) {
+    filters.push({ OR: [
+      ...(genreId ? [{ genreIdsJson: textContains(`\"${genreId}\"`) }] : []),
+      { genresJson: textContains(genre) },
+    ] });
+  }
+  if (country) {
+    filters.push({ OR: [
+      { countriesJson: textContains(`\"${country}\"`) },
+      { country },
+    ] });
+  }
+  if (watchedIds.size) filters.push({ id: { notIn: [...watchedIds] } });
+  const where: Prisma.MovieWhereInput = {
+    AND: [
+      ...filters,
+      ...(query ? [{ OR: [
       { title: textContains(query) },
       { originalTitle: textContains(query) },
       { director: textContains(query) },
       { overview: textContains(query) },
       { keywordsJson: textContains(query) },
-    ] } : {}),
+      ] }] : []),
+    ],
   };
-  const localMovies = await prisma.movie.findMany({ where, orderBy: { popularity: "desc" }, take: 180 });
+  let localMovies = await prisma.movie.findMany({ where, orderBy: { popularity: "desc" }, take: 180 });
+
+  // A sparse cache should not make provider-backed filters look empty. Fetch at
+  // most one provider page and persist a small bounded set of full details.
+  if (user && localMovies.length < LOCAL_RESULT_FLOOR && !mood) {
+    const provider = getMovieProvider();
+    const hasMetadataFilters = Boolean(genre || country || yearFrom || yearTo < 9999 || runtimeMin || runtimeMax < 9999);
+    const candidates = query
+      ? await provider.search(query).catch(() => [])
+      : hasMetadataFilters
+        ? await provider.discover({
+            genreIds: genreId ? [genreId] : undefined,
+            genres: !genreId && genre ? [genre] : undefined,
+            country: country || undefined,
+            yearFrom: yearFrom || undefined,
+            yearTo: yearTo < 9999 ? yearTo : undefined,
+            runtimeMin: runtimeMin || undefined,
+            runtimeMax: runtimeMax < 9999 ? runtimeMax : undefined,
+          }).catch(() => [])
+        : [];
+    const cachedIds = new Set(localMovies.map((movie) => movie.providerId));
+    const missingIds = candidates
+      .map((movie) => movie.providerId)
+      .filter((providerId) => !cachedIds.has(providerId))
+      .slice(0, ON_DEMAND_INGEST_LIMIT);
+    if (missingIds.length > 0) {
+      await ensureMoviesByProviderIds(missingIds);
+      localMovies = await prisma.movie.findMany({ where, orderBy: { popularity: "desc" }, take: 180 });
+    }
+  }
   const ctx = user ? await getUserTasteContext(user.id) : null;
   // Derived data is deterministic and local; search can safely score every cached title.
   const scored = ctx ? await scoreMoviesForUser(localMovies, ctx, { mood }) : [];
@@ -134,17 +185,5 @@ export async function GET(request: Request) {
   });
   local = diversify(local);
 
-  const hasDetailFilters = Boolean(genre || country || yearFrom || yearTo < 9999 || runtimeMin || runtimeMax < 9999 || unwatchedOnly);
-  if (query && !mood && !hasDetailFilters && local.length < 12) {
-    const provider = getMovieProvider();
-    const external = await searchMovies(query).catch(() => []);
-    const known = new Set(local.map((movie) => movie.providerId));
-    for (const movie of external) {
-      if (known.has(movie.providerId) || local.length >= RESULT_LIMIT) continue;
-      local.push({ providerId: movie.providerId, title: movie.title, originalTitle: movie.originalTitle ?? null, year: movie.releaseDate?.slice(0, 4) ?? null,
-        releaseDate: movie.releaseDate ?? null, posterUrl: provider.imageUrl(movie.posterPath, "poster"), genres: movie.genres.slice(0, 3),
-        runtime: null, country: null, director: null, forYou: null, match: null, moodMatch: null, analyzed: false });
-    }
-  }
   return NextResponse.json({ results: local });
 }

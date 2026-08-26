@@ -16,6 +16,10 @@ const toSummary = (m: ProviderMovieDetail): ProviderMovieSummary => ({
 });
 
 const year = (m: ProviderMovieDetail) => Number(m.releaseDate?.slice(0, 4) ?? 0);
+const hasGenre = (movie: ProviderMovieDetail, query: DiscoverQuery) => {
+  if (query.genreIds?.length) return query.genreIds.some((id) => movie.genreIds?.includes(id));
+  return !query.genres?.length || query.genres.some((genre) => movie.genres.includes(genre));
+};
 
 /** Offline provider used when no external credentials are configured. */
 export class MockMovieProvider implements MovieProvider {
@@ -38,10 +42,11 @@ export class MockMovieProvider implements MovieProvider {
 
   async discover(query: DiscoverQuery): Promise<ProviderMovieSummary[]> {
     return MOCK_CATALOG.filter((m) => {
-      if (query.genres?.length && !query.genres.some((g) => m.genres.includes(g))) return false;
+      if (!hasGenre(m, query)) return false;
       if (query.yearFrom && year(m) < query.yearFrom) return false;
       if (query.yearTo && year(m) > query.yearTo) return false;
       if (query.country && m.country !== query.country) return false;
+      if (query.runtimeMin && (m.runtime ?? 0) < query.runtimeMin) return false;
       if (query.runtimeMax && (m.runtime ?? 0) > query.runtimeMax) return false;
       return true;
     }).map(toSummary);

@@ -82,3 +82,42 @@ export function ScoredMovieCarousel({
     </ul>
   );
 }
+
+export function ScoredMovieGrid({
+  items,
+  watchlist,
+}: {
+  items: ScoredMovie[];
+  watchlist?: Set<string>;
+}) {
+  return (
+    <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4">
+      {items.map((item) => (
+        <li key={item.movie.id} className="min-w-0">
+          <div className="relative">
+            <Link href={`/movie/${item.movie.providerId}`} prefetch={false}>
+              <PosterFrame
+                title={item.movie.title}
+                posterUrl={posterUrl(item.movie)}
+                year={releaseYear(item.movie.releaseDate)}
+                className="w-full"
+                sizes="(max-width: 639px) 42vw, (max-width: 767px) 28vw, 170px"
+              />
+            </Link>
+            <div className="absolute right-2 top-2">
+              <WatchlistButton
+                providerId={item.movie.providerId}
+                initial={watchlist?.has(item.movie.id) ?? false}
+                variant="icon"
+              />
+            </div>
+          </div>
+          <Link href={`/movie/${item.movie.providerId}`} prefetch={false}>
+            <p className="mt-2 truncate text-sm">{item.movie.title}</p>
+            <p className="font-mono text-[10px] text-[var(--accent)]">{item.score.match}% MATCH</p>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}

@@ -67,7 +67,7 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ pr
   }`;
 
   return (
-    <div className="min-h-dvh pb-28">
+    <div className="app-with-bottom-nav min-h-dvh">
       <div className="mx-auto max-w-3xl px-5">
         <MovieHero
           title={movie.title}

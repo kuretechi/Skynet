@@ -16,6 +16,8 @@ const pages = numberFromEnv("BOOTSTRAP_PAGES_PER_BATCH", 1, 1, 2);
 const derivedLimit = numberFromEnv("BOOTSTRAP_DERIVED_LIMIT", 50, 0, 100);
 const target = numberFromEnv("BOOTSTRAP_TARGET", 1000, 1, 2000);
 const ingest = process.env.BOOTSTRAP_INGEST !== "false";
+const waitMs = numberFromEnv("BOOTSTRAP_WAIT_MS", 5_000, 1_500, 60_000);
+let emptyBatches = 0;
 
 for (let batch = 1; batch <= batches; batch += 1) {
   const response = await fetch(`${baseUrl}/api/maintenance/bootstrap`, {
@@ -35,12 +37,18 @@ for (let batch = 1; batch <= batches; batch += 1) {
 
   console.log(JSON.stringify({ batch, ...report }));
   page = report.nextPage;
+  emptyBatches = report.catalogueRemaining > 0 && report.catalogueAdded === 0 ? emptyBatches + 1 : 0;
+  if (emptyBatches >= 3) {
+    console.error("Stopped after three batches without new catalogue rows. Resume later from the next metadata page.");
+    process.exitCode = 1;
+    break;
+  }
   if (report.catalogueRemaining === 0 && report.signaturesRemaining === 0 && report.experienceVectorsRemaining === 0) {
     console.log("Catalogue target and deterministic feature generation are complete.");
     break;
   }
 
-  await new Promise((resolve) => setTimeout(resolve, 1_500));
+  await new Promise((resolve) => setTimeout(resolve, waitMs));
 }
 
 console.log(`Next metadata page: ${page}`);

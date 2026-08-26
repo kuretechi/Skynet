@@ -9,6 +9,11 @@ const DEFAULT_TARGET = 1_000;
 const DEFAULT_DERIVED_LIMIT = 50;
 const MAX_DERIVED_LIMIT = 100;
 const MAX_PAGES_PER_RUN = 2;
+const MAX_INGEST_PER_RUN = 20;
+const SEGMENTS_PER_PAGE = 3;
+const BACKFILL_GENRE_IDS = ["28", "12", "16", "35", "80", "18", "10751", "14", "27", "9648", "10749", "878", "53", "99"] as const;
+const BACKFILL_COUNTRIES = ["JP", "US", "GB", "KR", "FR", "CN", "HK", "DE", "IT", "ES", "IN", "CA", "AU"] as const;
+const BACKFILL_DECADES = [2020, 2010, 2000, 1990, 1980, 1970, 1960, 1950] as const;
 
 const boundedInteger = (value: number | undefined, fallback: number, min: number, max: number) => {
   if (!Number.isFinite(value)) return fallback;
@@ -37,6 +42,20 @@ export type BootstrapReport = {
   experienceVectorsRemaining: number;
 };
 
+const backfillSegment = (index: number) => {
+  const genreIndex = index % BACKFILL_GENRE_IDS.length;
+  const countryIndex = Math.floor(index / BACKFILL_GENRE_IDS.length) % BACKFILL_COUNTRIES.length;
+  const decadeIndex = Math.floor(index / (BACKFILL_GENRE_IDS.length * BACKFILL_COUNTRIES.length)) % BACKFILL_DECADES.length;
+  const yearFrom = BACKFILL_DECADES[decadeIndex];
+  return {
+    genreIds: [BACKFILL_GENRE_IDS[genreIndex]],
+    country: BACKFILL_COUNTRIES[countryIndex],
+    yearFrom,
+    yearTo: yearFrom + 9,
+    page: 1 + Math.floor(index / (BACKFILL_GENRE_IDS.length * BACKFILL_COUNTRIES.length * BACKFILL_DECADES.length)),
+  };
+};
+
 /** Adds catalogue metadata and deterministic derived data in bounded, resumable batches. */
 export async function runCatalogueBootstrap(options: BootstrapOptions = {}): Promise<BootstrapReport> {
   const provider = getMovieProvider();
@@ -49,13 +68,30 @@ export async function runCatalogueBootstrap(options: BootstrapOptions = {}): Pro
   const shouldIngest = options.ingest !== false && beforeCount < target;
   const summaries = shouldIngest
     ? (await Promise.all(
-        Array.from({ length: pages }, (_, index) => page + index).flatMap((sourcePage) => [
-          provider.popular(sourcePage).catch(() => []),
-          provider.topRated(sourcePage).catch(() => []),
-        ]),
+        Array.from({ length: pages }, (_, index) => page + index).flatMap((sourcePage) => {
+          const segmentOffset = (sourcePage - 1) * SEGMENTS_PER_PAGE;
+          return [
+            provider.popular(sourcePage).catch(() => []),
+            provider.topRated(sourcePage).catch(() => []),
+            ...Array.from({ length: SEGMENTS_PER_PAGE }, (_, segmentIndex) =>
+              provider.discover(backfillSegment(segmentOffset + segmentIndex)).catch(() => []),
+            ),
+          ];
+        }),
       )).flat()
     : [];
-  const providerIds = [...new Set(summaries.map((movie) => movie.providerId))];
+  if (shouldIngest && summaries.length === 0) throw new Error("MOVIE_PROVIDER_UNAVAILABLE");
+  const candidateIds = [...new Set(summaries.map((movie) => movie.providerId))];
+  const existing = candidateIds.length
+    ? await prisma.movie.findMany({
+        where: { provider: provider.name, mediaType: "movie", providerId: { in: candidateIds } },
+        select: { providerId: true },
+      })
+    : [];
+  const existingIds = new Set(existing.map((movie) => movie.providerId));
+  const providerIds = candidateIds
+    .filter((providerId) => !existingIds.has(providerId))
+    .slice(0, Math.min(MAX_INGEST_PER_RUN, Math.max(0, target - beforeCount)));
   await ensureMoviesByProviderIds(providerIds);
   const catalogueSize = await prisma.movie.count({ where: { provider: provider.name, mediaType: "movie" } });
   const [missingSignatures, missingVectors] = await Promise.all([

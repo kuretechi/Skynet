@@ -36,10 +36,12 @@ export type ProviderMovieDetail = ProviderMovieSummary & {
 };
 
 export type DiscoverQuery = {
-  genres?: string[];
+  genres?: readonly string[];
+  genreIds?: readonly string[];
   yearFrom?: number;
   yearTo?: number;
   country?: string;
+  runtimeMin?: number;
   runtimeMax?: number;
   page?: number;
 };

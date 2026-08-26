@@ -3,16 +3,13 @@ import { Prisma, type Movie, type MovieFeature } from "@prisma/client";
 import { mapWithConcurrency } from "@/lib/async/pool";
 import { LruMap } from "@/lib/cache/process-cache";
 import { prisma } from "@/lib/db";
-import { type AxisVector, mixVectors, pickVector } from "@/lib/dna/axes";
+import { type AxisVector, pickVector } from "@/lib/dna/axes";
 import { movieRowToDetail } from "@/lib/movies/repository";
-import { classifyWithLlm, isLlmConfigured } from "./llm";
+import { EXPERIENCE_VECTOR_VERSION } from "@/lib/recommend/config";
 import { generateRuleFeatures } from "./rules";
 
 /** Bump when the generation logic changes; cached vectors are keyed by it. */
-export const FEATURE_VERSION = "v1";
-
-/** Provisional weights (spec §9.6): LLM 70% / deterministic rules 30%. */
-export const LLM_WEIGHT = 0.7;
+export const FEATURE_VERSION = EXPERIENCE_VECTOR_VERSION;
 
 /**
  * A feature row is stable per (movieId, featureVersion) outside the explicit
@@ -45,18 +42,14 @@ export const getOrCreateMovieFeatures = cache(async (movie: Movie): Promise<Movi
 async function generateMovieFeatures(movie: Movie, overwrite = false): Promise<MovieFeature> {
   const detail = movieRowToDetail(movie);
   const rules = generateRuleFeatures(detail);
-  const ai = isLlmConfigured() ? await classifyWithLlm(detail) : null;
-  const vector: AxisVector = ai ? mixVectors(ai.vector, rules.vector, LLM_WEIGHT) : rules.vector;
 
   const row = {
-    ...vector,
-    generatorType: ai ? `hybrid_${ai.provider}_rules` : "rules_only",
+    ...rules.vector,
+    generatorType: "rules_v2",
+    confidence: rules.confidence,
+    axisConfidenceJson: JSON.stringify(rules.axisConfidence),
     rawFeaturesJson: JSON.stringify({
       rules: rules.vector,
-      ai: ai?.vector ?? null,
-      aiWeight: ai ? LLM_WEIGHT : 0,
-      provider: ai?.provider ?? null,
-      model: ai?.model ?? null,
       matchedGenres: rules.matchedGenres,
       matchedKeywords: rules.matchedKeywords,
     }),
@@ -108,7 +101,7 @@ export async function getOrCreateMovieFeaturesMany(
   const missing = [...byId.values()].filter((movie) => !features.has(movie.id));
   const generated = await mapWithConcurrency(
     missing,
-    isLlmConfigured() ? 1 : 4,
+    6,
     (movie) => generateMovieFeatures(movie),
   );
   for (const feature of generated) features.set(feature.movieId, feature);
@@ -117,9 +110,7 @@ export async function getOrCreateMovieFeaturesMany(
 }
 
 /**
- * Rewrites a stored vector in place. Used when the inputs changed after the
- * first pass: refreshed provider metadata, or an LLM key added later so titles
- * analysed as `rules_only` can be upgraded without a feature version bump.
+ * Rewrites a stored vector when provider metadata changes.
  */
 export async function regenerateMovieFeatures(movie: Movie): Promise<MovieFeature> {
   featureCache.delete(movie.id);

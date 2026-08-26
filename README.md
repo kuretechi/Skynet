@@ -127,7 +127,8 @@ npm run dev               # http://localhost:3000
 TMDB のキーが無いときは同梱のモックカタログ（36 作品）で全機能が動きます。
 ログイン不要デモ（`/demo`）の候補は、特徴づけが済んだ作品だけを出します（シード直後は 12 本前後、
 作品ページを開くほど増えます）。全作品を先に取り込まない仕組みのためで、動作には影響しません。
-OpenAI のキーが無いときは、映画の特徴づけが決まった規則だけになります（動作は同じ）。
+映画の特徴づけとレコメンドは、外部 AI を使わない決定論的な処理です。同じメタデータと
+同じ評価履歴からは、同じ結果を再現できます。
 
 ### スマホ / ブラウザだけで開発する（GitHub Codespaces）
 
@@ -227,11 +228,6 @@ SHADOW_DATABASE_URL=postgresql://postgres:pg@localhost:55432/postgres \
 | 変数 | 未設定時の挙動 |
 | --- | --- |
 | `TMDB_API_KEY` | 同梱のモックカタログ（36 作品）で動作 |
-| `AI_PROVIDER` | キーがある場合は Gemini、次に OpenAI を自動選択 |
-| `GEMINI_API_KEY` | Gemini を選択していて未設定なら、特徴量生成が決定論ルールのみになる |
-| `GEMINI_MODEL` | `gemini-3.5-flash-lite` を使用 |
-| `AI_BACKFILL_BATCH_SIZE` | 日次処理で AI 評価へ更新する待機作品数（既定 10、最大 20） |
-| `OPENAI_API_KEY` | `AI_PROVIDER=openai` の場合に使用する任意のフォールバック |
 | `AUTH_SECRET` | 開発用の固定鍵にフォールバック（本番では必ず設定） |
 | `DATABASE_URL` | 未設定なら `.env` の SQLite（`file:./dev.db`）。Postgres URL を渡すと PostgreSQL に切り替わる |
 | `DB_POOL_MAX` | インスタンスあたりの Postgres 接続上限（既定 30）。同時アクセスが多いイベントでは増やす |
@@ -245,9 +241,9 @@ TMDB を利用する場合は、TMDB の最新の利用条件とアトリビュ�
 
 `vercel.json` の cron が毎日 `/api/cron/refresh` を叩き、次の作業をまとめて行います（`Authorization: Bearer $CRON_SECRET` が必要）。
 
-- 公開中・人気の新作をカタログに取り込み、8 軸の特徴量を生成
-- 14 日以上前に取得した作品メタデータを再取得して特徴量を作り直す（評価・レビュー・棚はそのまま）
-- `rules_only` の古い作品から順に、1件ずつ最大 `AI_BACKFILL_BATCH_SIZE` 件をAI評価へ更新
+- 公開中・人気の新作をカタログに取り込み、Content Signature と補助用の 8 軸を生成
+- 14 日以上前に取得した作品メタデータを再取得し、派生データを決定論的に作り直す（評価・レビュー・棚はそのまま）
+- 旧アルゴリズムの特徴量を使うユーザー DNA を再計算し、残った旧バージョンの派生データを削除
 - 閉じ忘れたウォッチルームを終了させ、90 日より古い終了済みルームを削除
 - 無操作が続くと停止する Postgres（Supabase 無料枠など）へ定期的に接続する
 
@@ -260,8 +256,8 @@ curl -H "Authorization: Bearer $CRON_SECRET" https://<your-app>/api/cron/refresh
 ## 運用前の映画カタログ初期投入
 
 通常の日次処理とは別に、TMDB の人気作品と高評価作品を混ぜて最大 1,000 本を段階的に保存し、
-Gemini の 8 軸評価へ回せます。処理済みかどうかは `Movie` / `MovieFeature` から判定するため、
-途中で無料枠や実行時間の上限に達しても、成功済み作品を重複評価せず再開できます。
+Content Signature と補助用 8 軸を生成できます。処理済みかどうかは DB のバージョン付き派生データから
+判定するため、途中で実行時間の上限に達しても、成功済み作品を重複処理せず再開できます。
 
 まずメタデータを増やす場合（10 バッチで最大約 400 候補、重複分は自動除外）:
 
@@ -269,30 +265,28 @@ Gemini の 8 軸評価へ回せます。処理済みかどうかは `Movie` / `M
 BOOTSTRAP_BASE_URL=https://<your-app> \
 CRON_SECRET=<Vercel と同じ値> \
 BOOTSTRAP_BATCHES=10 \
-BOOTSTRAP_AI_LIMIT=0 \
+BOOTSTRAP_DERIVED_LIMIT=0 \
 npm run catalogue:bootstrap
 ```
 
-続けて AI 評価を 1 回最大 10 本、10 バッチ進める場合:
+続けて派生データ生成を 1 回最大 20 本、10 バッチ進める場合:
 
 ```bash
 BOOTSTRAP_BASE_URL=https://<your-app> \
 CRON_SECRET=<Vercel と同じ値> \
 BOOTSTRAP_BATCHES=10 \
-BOOTSTRAP_AI_LIMIT=10 \
+BOOTSTRAP_DERIVED_LIMIT=20 \
 BOOTSTRAP_INGEST=false \
 npm run catalogue:bootstrap
 ```
 
-レスポンスにはカタログ総数、AI 評価済み総数、未評価数、失敗数が出ます。AI が 1 件でも失敗した
-バッチではスクリプトが停止するため、AI Studio の上限や Vercel ログを確認してから同じコマンドを
-再実行してください。メタデータ投入を再開するときは、最後に表示された
+レスポンスにはカタログ総数、Content Signature／8 軸の生成済み総数と未生成数が出ます。
+メタデータ投入を再開するときは、最後に表示された
 `Next metadata page` を `BOOTSTRAP_START_PAGE` に指定します。
 
 書き込み API は `POST /api/maintenance/bootstrap` で、`CRON_SECRET` の Bearer 認証が必須です。
-1 リクエストあたり TMDB 2 ページ、AI 20 本を上限に固定し、Vercel 関数の時間超過や誤操作による
-大量リクエストを防いでいます。この初期投入は `TMDB_API_KEY` と Gemini の設定がある本番環境向けで、
-DB マイグレーションは不要です。
+1 リクエストあたり TMDB 2 ページ、派生データ 50 本を上限に固定し、Vercel 関数の時間超過や
+誤操作による大量処理を防いでいます。TMDB を使う本番環境では `TMDB_API_KEY` が必要です。
 
 ## スクリプト
 
@@ -303,7 +297,7 @@ npm run lint       # ESLint
 npm run typecheck  # tsc --noEmit
 npm run verify     # lint + typecheck + production build（マージ前の共通検証）
 npm run db:seed    # デモデータ投入
-npm run catalogue:bootstrap # 本番の初期カタログを小分けで投入・AI評価
+npm run catalogue:bootstrap # 本番の初期カタログと決定論的な派生データを小分けで投入
 ```
 
 ## 開発からデプロイまで

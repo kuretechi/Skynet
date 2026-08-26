@@ -29,7 +29,13 @@ async function HiddenGems({ userId }: { userId: string }) {
 
 async function OutsideBubble({ userId }: { userId: string }) {
   const [recommendations, watchlist] = await Promise.all([discoverRecommendations(userId), watchlistMovieIds(userId)]);
-  const items = [...recommendations].sort((a, b) => a.score.match - b.score.match).slice(0, 4);
+  const items = recommendations
+    .filter((item) => item.score.match >= 40)
+    .sort((a, b) =>
+      (a.trace.islandAffinity ?? 1) - (b.trace.islandAffinity ?? 1)
+      || b.score.match - a.score.match,
+    )
+    .slice(0, 4);
   if (items.length === 0) return null;
   return <section className="flex flex-col gap-4"><SectionHeader title="Outside Your Bubble" caption="嗜好から少し離れた提案" /><ScoredMovieCarousel items={items} watchlist={watchlist} /></section>;
 }

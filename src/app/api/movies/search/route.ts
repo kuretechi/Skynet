@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { euclideanDistance } from "@/lib/dna/axes";
-import { FEATURE_VERSION, featureVector } from "@/lib/features/generate";
 import { getMovieProvider } from "@/lib/movies/provider";
 import { movieGenres, posterUrl, searchMovies } from "@/lib/movies/repository";
 import { getMood } from "@/lib/recommend/moods";
@@ -110,26 +108,19 @@ export async function GET(request: Request) {
     ] } : {}),
   };
   const localMovies = await prisma.movie.findMany({ where, orderBy: { popularity: "desc" }, take: 180 });
-  const existingFeatures = await prisma.movieFeature.findMany({
-    where: { featureVersion: FEATURE_VERSION, movieId: { in: localMovies.map((movie) => movie.id) } },
-  });
-  const featuredIds = new Set(existingFeatures.map((feature) => feature.movieId));
   const ctx = user ? await getUserTasteContext(user.id) : null;
-  // Searching must never enqueue or generate AI analysis. Only score rows that
-  // already have the current feature version; the rest remain visible as unanalysed.
-  const scored = ctx ? await scoreMoviesForUser(localMovies.filter((movie) => featuredIds.has(movie.id)), ctx) : [];
+  // Derived data is deterministic and local; search can safely score every cached title.
+  const scored = ctx ? await scoreMoviesForUser(localMovies, ctx, { mood }) : [];
   const scoredById = new Map(scored.map((item) => [item.movie.id, item]));
-  const moodFeatures = mood ? existingFeatures : [];
-  const moodDistance = new Map(moodFeatures.map((feature) => [feature.movieId, euclideanDistance(mood!.target, featureVector(feature))]));
 
-  let local = localMovies.filter((movie) => !mood || moodDistance.has(movie.id)).map((movie) => {
+  let local = localMovies.map((movie) => {
     const item = scoredById.get(movie.id);
     return {
       providerId: movie.providerId, title: movie.title, originalTitle: movie.originalTitle, year: movie.releaseDate?.slice(0, 4) ?? null,
       releaseDate: movie.releaseDate, posterUrl: posterUrl(movie), genres: movieGenres(movie).slice(0, 3),
       runtime: movie.runtime, country: movie.country, director: movie.director, forYou: item?.score.predicted ?? null, match: item?.score.match ?? null,
-      moodMatch: mood ? Math.max(0, Math.round((1 - (moodDistance.get(movie.id) ?? 1) / Math.sqrt(8)) * 100)) : null,
-      analyzed: featuredIds.has(movie.id),
+      moodMatch: item?.score.moodMatch ?? null,
+      analyzed: Boolean(item),
     };
   });
   local.sort((a, b) => {

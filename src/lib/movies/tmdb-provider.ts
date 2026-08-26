@@ -19,8 +19,13 @@ type TmdbMovie = {
   genres?: { id: number; name: string }[];
   genre_ids?: number[];
   production_countries?: { iso_3166_1: string }[];
-  credits?: { cast?: { name: string }[]; crew?: { name: string; job: string }[] };
-  keywords?: { keywords?: { name: string }[] };
+  production_companies?: { id: number; name: string }[];
+  belongs_to_collection?: { id: number; name: string } | null;
+  credits?: {
+    cast?: { id: number; name: string }[];
+    crew?: { id: number; name: string; job: string; department?: string }[];
+  };
+  keywords?: { keywords?: { id: number; name: string }[] };
 };
 
 /** TMDB implementation of the movie provider port. */
@@ -66,6 +71,7 @@ export class TmdbMovieProvider implements MovieProvider {
   private toSummary(m: TmdbMovie, genreNames?: Map<number, string>): ProviderMovieSummary {
     return {
       providerId: String(m.id),
+      mediaType: "movie",
       title: m.title,
       originalTitle: m.original_title,
       releaseDate: m.release_date || undefined,
@@ -78,6 +84,7 @@ export class TmdbMovieProvider implements MovieProvider {
       genres:
         m.genres?.map((g) => g.name) ??
         (m.genre_ids ?? []).map((id) => genreNames?.get(id)).filter((n): n is string => Boolean(n)),
+      genreIds: (m.genres?.map((g) => g.id) ?? m.genre_ids ?? []).map(String),
     };
   }
 
@@ -107,14 +114,29 @@ export class TmdbMovieProvider implements MovieProvider {
     });
     if (!m?.id) return null;
     const summary = this.toSummary(m);
+    const director = m.credits?.crew?.find((c) => c.job === "Director");
+    const writers = (m.credits?.crew ?? []).filter((c) =>
+      c.department === "Writing" || ["Writer", "Screenplay", "Story"].includes(c.job),
+    );
+    const cast = (m.credits?.cast ?? []).slice(0, 10);
+    const keywords = m.keywords?.keywords ?? [];
     return {
       ...summary,
       runtime: m.runtime ?? undefined,
       country: m.production_countries?.[0]?.iso_3166_1,
+      countries: (m.production_countries ?? []).map((country) => country.iso_3166_1),
       language: m.original_language,
-      director: m.credits?.crew?.find((c) => c.job === "Director")?.name,
-      cast: (m.credits?.cast ?? []).slice(0, 10).map((c) => c.name),
-      keywords: (m.keywords?.keywords ?? []).map((k) => k.name),
+      director: director?.name,
+      directorId: director ? String(director.id) : undefined,
+      writers: [...new Map(writers.map((writer) => [writer.id, { id: String(writer.id), name: writer.name }])).values()],
+      cast: cast.map((person) => person.name),
+      castIds: cast.map((person) => String(person.id)),
+      keywords: keywords.map((keyword) => keyword.name),
+      keywordIds: keywords.map((keyword) => String(keyword.id)),
+      companies: (m.production_companies ?? []).map((company) => ({ id: String(company.id), name: company.name })),
+      collection: m.belongs_to_collection
+        ? { id: String(m.belongs_to_collection.id), name: m.belongs_to_collection.name }
+        : undefined,
     };
   }
 

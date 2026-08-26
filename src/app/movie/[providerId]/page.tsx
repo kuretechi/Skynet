@@ -157,7 +157,7 @@ async function SimilarStructure({ movie }: { movie: Movie }) {
 
   return (
     <section className="flex flex-col gap-4">
-      <SectionHeader title="Similar Structure" caption="8軸距離が近い作品" />
+      <SectionHeader title="Similar Structure" caption="作品特徴が近い作品" />
       <ul className="no-scrollbar -mx-5 flex gap-4 overflow-x-auto px-5">
         {similar.map((item) => (
           <li key={item.movie.id} className="w-24 shrink-0">

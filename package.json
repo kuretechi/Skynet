@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-strip-types --test src/lib/features/provider-selection.test.ts",
+    "test": "tsx --test src/lib/recommend/personal.test.ts src/lib/signatures/similarity.test.ts",
     "typecheck": "tsc --noEmit",
     "verify": "npm run lint && npm run typecheck && npm run build",
     "slides:pdf": "marp docs/slides/pitch.md --pdf --allow-local-files -o docs/slides/pitch.pdf",
@@ -26,7 +26,6 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@google/genai": "^2.18.0",
     "@prisma/adapter-pg": "^6.19.3",
     "@prisma/client": "^6.19.3",
     "@supabase/realtime-js": "^2.112.3",

@@ -1,5 +1,6 @@
 export type ProviderMovieSummary = {
   providerId: string;
+  mediaType?: "movie" | "tv";
   title: string;
   originalTitle?: string;
   releaseDate?: string;
@@ -10,15 +11,28 @@ export type ProviderMovieSummary = {
   voteAverage: number;
   voteCount: number;
   genres: string[];
+  genreIds?: string[];
+};
+
+export type ProviderEntity = {
+  id?: string;
+  name: string;
 };
 
 export type ProviderMovieDetail = ProviderMovieSummary & {
   runtime?: number;
   country?: string;
+  countries?: string[];
   language?: string;
   director?: string;
+  directorId?: string;
+  writers?: ProviderEntity[];
   cast: string[];
+  castIds?: string[];
   keywords: string[];
+  keywordIds?: string[];
+  companies?: ProviderEntity[];
+  collection?: ProviderEntity;
 };
 
 export type DiscoverQuery = {

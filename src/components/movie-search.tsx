@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { MOODS } from "@/lib/recommend/moods";
 import { RatingInput } from "./rating-input";
 import { WatchlistButton } from "./watchlist-button";
@@ -33,7 +33,10 @@ type Filters = {
   country: string;
 };
 
-const DEFAULT_FILTERS: Filters = { unwatched: false, runtimeMin: 40, runtimeMax: 240, genre: "", decade: "", country: "" };
+const RUNTIME_MIN = 0;
+const RUNTIME_MAX = 240;
+const RUNTIME_STEP = 10;
+const DEFAULT_FILTERS: Filters = { unwatched: false, runtimeMin: RUNTIME_MIN, runtimeMax: RUNTIME_MAX, genre: "", decade: "", country: "" };
 const GENRES = ["アクション", "アドベンチャー", "アニメーション", "コメディ", "犯罪", "ドラマ", "ファミリー", "ファンタジー", "ホラー", "ミステリー", "ロマンス", "サイエンスフィクション", "スリラー", "ドキュメンタリー"];
 const COUNTRIES = [["JP", "日本"], ["US", "アメリカ"], ["GB", "イギリス"], ["KR", "韓国"], ["FR", "フランス"], ["CN", "中国"], ["HK", "香港"], ["DE", "ドイツ"], ["IT", "イタリア"], ["ES", "スペイン"], ["IN", "インド"], ["CA", "カナダ"], ["AU", "オーストラリア"]] as const;
 
@@ -50,10 +53,8 @@ function useSearch(query: string, mood: string, sort: Sort, filters: Filters) {
         if (filters.unwatched) params.set("unwatched", "1");
         if (filters.genre) params.set("genre", filters.genre);
         if (filters.country) params.set("country", filters.country);
-        if (filters.runtimeMin !== DEFAULT_FILTERS.runtimeMin || filters.runtimeMax !== DEFAULT_FILTERS.runtimeMax) {
-          params.set("runtimeMin", String(filters.runtimeMin));
-          params.set("runtimeMax", String(filters.runtimeMax));
-        }
+        if (filters.runtimeMin > RUNTIME_MIN) params.set("runtimeMin", String(filters.runtimeMin));
+        if (filters.runtimeMax < RUNTIME_MAX) params.set("runtimeMax", String(filters.runtimeMax));
         if (filters.decade) {
           const from = Number(filters.decade);
           params.set("yearFrom", String(from));
@@ -79,7 +80,7 @@ export function MovieSearch({ mode = "browse", ratedIds = [], onRated, placehold
   const [mood, setMood] = useState("");
   const [sort, setSort] = useState<Sort>("for-you");
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
-  const activeFilters = Number(filters.unwatched) + Number(Boolean(filters.genre)) + Number(Boolean(filters.decade)) + Number(Boolean(filters.country)) + Number(filters.runtimeMin !== 40 || filters.runtimeMax !== 240);
+  const activeFilters = Number(filters.unwatched) + Number(Boolean(filters.genre)) + Number(Boolean(filters.decade)) + Number(Boolean(filters.country)) + Number(filters.runtimeMin !== RUNTIME_MIN || filters.runtimeMax !== RUNTIME_MAX);
   const { results, loading } = useSearch(query, unified ? mood : "", unified ? sort : "for-you", unified ? filters : DEFAULT_FILTERS);
   const updateFilter = <K extends keyof Filters>(key: K, value: Filters[K]) => setFilters((current) => ({ ...current, [key]: value }));
 
@@ -112,9 +113,26 @@ export function MovieSearch({ mode = "browse", ratedIds = [], onRated, placehold
             <select value={filters.country} onChange={(event) => updateFilter("country", event.target.value)}><option value="">すべて</option>{COUNTRIES.map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select>
           </label>
           <div className="flex flex-col gap-3 sm:col-span-2">
-            <div className="flex items-center justify-between"><span className="label">上映時間</span><span className="text-xs text-[var(--accent)]">{filters.runtimeMin}分〜{filters.runtimeMax}分</span></div>
-            <label className="grid grid-cols-[3.5rem_1fr] items-center gap-3 text-xs"><span>最短</span><input type="range" min="40" max="240" step="10" value={filters.runtimeMin} onChange={(event) => updateFilter("runtimeMin", Math.min(Number(event.target.value), filters.runtimeMax - 10))} /></label>
-            <label className="grid grid-cols-[3.5rem_1fr] items-center gap-3 text-xs"><span>最長</span><input type="range" min="40" max="240" step="10" value={filters.runtimeMax} onChange={(event) => updateFilter("runtimeMax", Math.max(Number(event.target.value), filters.runtimeMin + 10))} /></label>
+            <div className="flex items-center justify-between gap-3">
+              <span className="label">上映時間</span>
+              <span className="text-xs text-[var(--accent)]">
+                {filters.runtimeMin === RUNTIME_MIN ? "下限なし" : `${filters.runtimeMin}分`}〜{filters.runtimeMax === RUNTIME_MAX ? "上限なし" : `${filters.runtimeMax}分`}
+              </span>
+            </div>
+            <div
+              className="runtime-range"
+              style={{
+                "--range-start": `${(filters.runtimeMin / RUNTIME_MAX) * 100}%`,
+                "--range-end": `${(filters.runtimeMax / RUNTIME_MAX) * 100}%`,
+              } as CSSProperties}
+            >
+              <div className="runtime-range-track" aria-hidden />
+              <input aria-label="上映時間の下限" type="range" min={RUNTIME_MIN} max={RUNTIME_MAX} step={RUNTIME_STEP} value={filters.runtimeMin}
+                onChange={(event) => updateFilter("runtimeMin", Math.min(Number(event.target.value), filters.runtimeMax - RUNTIME_STEP))} />
+              <input aria-label="上映時間の上限" type="range" min={RUNTIME_MIN} max={RUNTIME_MAX} step={RUNTIME_STEP} value={filters.runtimeMax}
+                onChange={(event) => updateFilter("runtimeMax", Math.max(Number(event.target.value), filters.runtimeMin + RUNTIME_STEP))} />
+            </div>
+            <div className="flex justify-between text-[10px] text-[var(--muted)]"><span>下限なし</span><span>上限なし</span></div>
           </div>
           {activeFilters ? <button type="button" onClick={() => setFilters(DEFAULT_FILTERS)} className="label justify-self-start border border-[var(--line)] px-3 py-2 text-[var(--muted)] sm:col-span-2">CLEAR FILTERS</button> : null}
         </div>

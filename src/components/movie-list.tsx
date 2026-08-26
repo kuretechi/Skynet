@@ -52,7 +52,7 @@ export function ScoredMovieCarousel({
   watchlist?: Set<string>;
 }) {
   return (
-    <ul className="no-scrollbar -mx-5 flex gap-4 overflow-x-auto px-5 py-1">
+    <ul className="movie-carousel no-scrollbar flex gap-4 overflow-x-auto py-1">
       {items.map((item) => (
         <li key={item.movie.id} className="w-32 shrink-0">
           <div className="relative">

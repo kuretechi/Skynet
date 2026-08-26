@@ -4,8 +4,8 @@ import { RECOMMENDATION_POOL_SIZE } from "@/lib/config";
 import { recommendForUser } from "@/lib/recommend/engine";
 import { watchlistMovieIds } from "@/lib/shelves";
 import { MovieSearch } from "@/components/movie-search";
-import { ScoredMovieCarousel, ScoredMovieRow, SectionHeader } from "@/components/movie-list";
-import { CarouselSkeleton, SectionSkeleton } from "@/components/skeletons";
+import { ScoredMovieCarousel, SectionHeader } from "@/components/movie-list";
+import { CarouselSkeleton } from "@/components/skeletons";
 
 export const dynamic = "force-dynamic";
 const discoverRecommendations = cache((userId: string) => recommendForUser(userId, { limit: RECOMMENDATION_POOL_SIZE, poolSize: RECOMMENDATION_POOL_SIZE }));
@@ -15,19 +15,9 @@ export default async function DiscoverPage() {
   return <main className="flex flex-col gap-12 pt-10">
     <header><span className="label">Discover</span><h1 className="display mt-2 text-2xl">次の一本を見つける。</h1></header>
     <section className="flex flex-col gap-4"><MovieSearch unified /></section>
-    <Suspense fallback={<SectionSkeleton title="For You" rows={4} />}><ForYou userId={user.id} /></Suspense>
     <Suspense fallback={<CarouselSkeleton title="Hidden Gems" />}><HiddenGems userId={user.id} /></Suspense>
     <Suspense fallback={<CarouselSkeleton title="Outside Your Bubble" />}><OutsideBubble userId={user.id} /></Suspense>
   </main>;
-}
-
-async function ForYou({ userId }: { userId: string }) {
-  const [recommendations, watchlist] = await Promise.all([discoverRecommendations(userId), watchlistMovieIds(userId)]);
-  const forYou = recommendations.slice(0, 6);
-  if (forYou.length === 0) return null;
-  return <section className="flex flex-col gap-4"><SectionHeader title="For You" caption="8軸の再ランキング済み" />
-    <ul className="flex flex-col divide-y divide-[var(--line)]">{forYou.map((item) => <li key={item.movie.id}><ScoredMovieRow item={item} inWatchlist={watchlist.has(item.movie.id)} /></li>)}</ul>
-  </section>;
 }
 
 async function HiddenGems({ userId }: { userId: string }) {

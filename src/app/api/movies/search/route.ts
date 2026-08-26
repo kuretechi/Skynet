@@ -87,8 +87,12 @@ export async function GET(request: Request) {
       ])
     : new Set<string>();
   const filters = {
-    releaseDate: { gte: yearFrom ? `${yearFrom}-01-01` : undefined, lte: yearTo < 9999 ? `${yearTo}-12-31` : undefined },
-    runtime: { gte: runtimeMin || undefined, lte: runtimeMax < 9999 ? runtimeMax : undefined },
+    ...(yearFrom || yearTo < 9999 ? {
+      releaseDate: { gte: yearFrom ? `${yearFrom}-01-01` : undefined, lte: yearTo < 9999 ? `${yearTo}-12-31` : undefined },
+    } : {}),
+    ...(runtimeMin || runtimeMax < 9999 ? {
+      runtime: { gte: runtimeMin || undefined, lte: runtimeMax < 9999 ? runtimeMax : undefined },
+    } : {}),
     ...(genre ? { genresJson: textContains(genre) } : {}),
     ...(country ? { country } : {}),
     ...(watchedIds.size ? { id: { notIn: [...watchedIds] } } : {}),

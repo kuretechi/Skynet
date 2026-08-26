@@ -30,7 +30,7 @@ export default async function WatchRoomPage({ params }: { params: Promise<{ id: 
   if (!state) notFound();
 
   return (
-    <div className="min-h-dvh pb-28">
+    <div className="app-with-bottom-nav min-h-dvh">
       <div className="mx-auto flex max-w-3xl flex-col gap-8 px-5 pt-10">
         <header className="flex gap-4">
           <Link href={`/movie/${room.movie.providerId}`} className="w-20 shrink-0">

@@ -4,6 +4,7 @@ import { CreateShelfForm } from "@/components/create-shelf-form";
 import { releaseYear } from "@/components/movie-visuals";
 import { ShelfSection } from "@/components/shelf-section";
 import { posterUrl } from "@/lib/movies/repository";
+import { shelfDisplayName } from "@/lib/shelves";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +44,7 @@ export default async function ShelfPage() {
       {shelves.map((shelf) => (
         <ShelfSection
           key={shelf.id}
-          title={shelf.name}
+          title={shelfDisplayName(shelf.kind, shelf.name)}
           caption={`${MOTIF_CAPTION[shelf.motif] ?? "SHELF"} · ${shelf.movies.length}`}
           items={shelf.movies.map((item) => ({
             id: item.id,

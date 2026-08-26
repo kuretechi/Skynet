@@ -8,7 +8,7 @@ import { recommendForUser, scoreMoviesForUser, getUserTasteContext } from "@/lib
 import { CinemaCrystal } from "@/components/cinema-crystal";
 import { TypeCode } from "@/components/type-code";
 import { typeInk } from "@/lib/theme";
-import { ScoredMovieCarousel, SectionHeader } from "@/components/movie-list";
+import { ScoredMovieCarousel, ScoredMovieGrid, SectionHeader } from "@/components/movie-list";
 import { PosterFrame, releaseYear } from "@/components/movie-visuals";
 import { posterUrl } from "@/lib/movies/repository";
 import { RatingInput } from "@/components/rating-input";
@@ -47,12 +47,16 @@ export default async function HomePage() {
         <Tonight userId={user.id} />
       </Suspense>
 
+      <Suspense fallback={<CarouselSkeleton title="Watchlist" />}>
+        <HomeWatchlist userId={user.id} />
+      </Suspense>
+
       <Suspense fallback={null}>
         <ContinueRating userId={user.id} />
       </Suspense>
 
-      <Suspense fallback={<CarouselSkeleton title="Because You Loved…" />}>
-        <BecauseYouLoved userId={user.id} />
+      <Suspense fallback={<CarouselSkeleton title="For You" />}>
+        <ForYouRecommendations userId={user.id} />
       </Suspense>
 
       <Suspense fallback={<CarouselSkeleton title="Recently Watched" />}>
@@ -133,7 +137,45 @@ async function Tonight({ userId }: { userId: string }) {
   );
 }
 
-async function BecauseYouLoved({ userId }: { userId: string }) {
+async function HomeWatchlist({ userId }: { userId: string }) {
+  const [items, total] = await Promise.all([
+    prisma.shelfMovie.findMany({
+      where: { shelf: { userId, kind: "want_to_watch" } },
+      include: { movie: true },
+      orderBy: { addedAt: "desc" },
+      take: 10,
+    }),
+    prisma.shelfMovie.count({ where: { shelf: { userId, kind: "want_to_watch" } } }),
+  ]);
+  if (items.length === 0) return null;
+
+  return (
+    <section className="flex flex-col gap-4">
+      <SectionHeader title="Watchlist" caption={`${total} saved`} />
+      <ul className="no-scrollbar -mx-5 flex gap-4 overflow-x-auto px-5">
+        {items.map((item) => (
+          <li key={item.id} className="w-24 shrink-0">
+            <Link href={`/movie/${item.movie.providerId}`} prefetch={false}>
+              <PosterFrame
+                title={item.movie.title}
+                posterUrl={posterUrl(item.movie)}
+                year={releaseYear(item.movie.releaseDate)}
+                className="w-24"
+                sizes="96px"
+              />
+              <p className="mt-2 truncate text-[11px]">{item.movie.title}</p>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <Link href="/shelf" className="label self-end text-[var(--accent)]">
+        VIEW ALL
+      </Link>
+    </section>
+  );
+}
+
+async function ForYouRecommendations({ userId }: { userId: string }) {
   const [recommendations, watchlist] = await Promise.all([
     homeRecommendations(userId),
     watchlistMovieIds(userId),
@@ -145,12 +187,13 @@ async function BecauseYouLoved({ userId }: { userId: string }) {
 
   return (
     <section className="flex flex-col gap-4">
-      <SectionHeader title="Because You Loved…" />
+      <SectionHeader title="For You" caption={`${rest.length} recommendations`} />
       <ScoredMovieCarousel items={initial} watchlist={watchlist} />
       {expanded.length > 0 ? <details className="group border-t border-[var(--line)] pt-3">
-        <summary className="label cursor-pointer list-none text-center text-[var(--accent)] group-open:mb-4">
-          <span className="group-open:hidden">EXPAND · MORE RECOMMENDATIONS</span><span className="hidden group-open:inline">COLLAPSE</span>
-        </summary><ScoredMovieCarousel items={expanded} watchlist={watchlist} />
+        <summary className="label cursor-pointer list-none text-center text-[var(--accent)] group-open:mb-5">
+          <span className="group-open:hidden">MORE · VIEW POSTER GRID</span><span className="hidden group-open:inline">CLOSE POSTER GRID</span>
+        </summary>
+        <ScoredMovieGrid items={expanded} watchlist={watchlist} />
       </details> : null}
     </section>
   );

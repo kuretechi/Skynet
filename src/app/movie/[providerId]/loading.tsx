@@ -3,7 +3,7 @@ import { Shimmer } from "@/components/skeletons";
 /** Shown the instant a poster is tapped, while the detail page streams in. */
 export default function Loading() {
   return (
-    <div className="min-h-dvh pb-28">
+    <div className="app-with-bottom-nav min-h-dvh">
       <div className="mx-auto max-w-3xl px-5">
         <Shimmer className="-mx-5 h-64 opacity-30" />
         <main className="flex flex-col gap-8 pt-8">

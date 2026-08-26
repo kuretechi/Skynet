@@ -150,7 +150,7 @@ export default async function DnaPage({ searchParams }: { searchParams: Promise<
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatCard label="WATCHED" value={`${watched.length}`} unit="本" strong />
           <StatCard label="MASTERPIECE" value={`${masterpieceIds.size}`} unit="本" />
-          <StatCard label="WANT TO WATCH" value={`${wantToWatchCount}`} unit="本" />
+          <StatCard label="WATCHLIST" value={`${wantToWatchCount}`} unit="本" />
           <StatCard label="SCREEN TIME" value={screenTime} unit="" />
         </div>
       </section>

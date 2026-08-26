@@ -9,7 +9,7 @@ export default async function TabsLayout({ children }: { children: React.ReactNo
   if (!user.onboardedAt) redirect("/onboarding");
 
   return (
-    <div className="min-h-dvh pb-24">
+    <div className="app-with-bottom-nav min-h-dvh">
       <ServiceWorkerRegistrar />
       <div className="mx-auto max-w-3xl px-5">{children}</div>
       <BottomNav />

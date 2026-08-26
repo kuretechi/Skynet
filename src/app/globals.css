@@ -61,9 +61,25 @@
   --ink-40: color-mix(in srgb, var(--foreground) 40%, transparent);
   --ink-55: color-mix(in srgb, var(--foreground) 55%, transparent);
   --nav-background: color-mix(in srgb, var(--background) 92%, transparent);
+  --bottom-nav-clearance: calc(7.75rem + env(safe-area-inset-bottom));
   /* Type that sits on artwork or VHS spines stays light in every theme. */
   --on-media: #ece9e4;
   --on-media-soft: rgba(236, 233, 228, 0.55);
+}
+
+.app-with-bottom-nav {
+  padding-bottom: var(--bottom-nav-clearance);
+}
+
+.bottom-nav::before {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  left: 0;
+  height: 42px;
+  pointer-events: none;
+  background: linear-gradient(to top, var(--background), transparent);
 }
 
 @theme inline {
@@ -193,6 +209,18 @@ body {
   border-radius: 18px;
   background: color-mix(in srgb, var(--surface) 94%, transparent);
   box-shadow: 0 16px 38px -18px rgba(0, 0, 0, 0.75);
+}
+
+[data-ui="pop"] .bottom-nav::before {
+  right: -14px;
+  left: -14px;
+  height: 52px;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--background) 98%, transparent),
+    color-mix(in srgb, var(--background) 72%, transparent) 48%,
+    transparent
+  );
 }
 
 [data-ui="pop"] .bottom-nav .nav-link {

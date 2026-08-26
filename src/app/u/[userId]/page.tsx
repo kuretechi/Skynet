@@ -13,6 +13,7 @@ import { SectionHeader } from "@/components/movie-list";
 import { releaseYear } from "@/components/movie-visuals";
 import { ShelfRack } from "@/components/shelf-rack";
 import { posterUrl } from "@/lib/movies/repository";
+import { shelfDisplayName } from "@/lib/shelves";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +44,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
     : false;
 
   return (
-    <div className="min-h-dvh pb-28">
+    <div className="app-with-bottom-nav min-h-dvh">
       <main className="mx-auto flex max-w-3xl flex-col gap-10 px-5 pt-10">
         <header className="flex flex-col items-center gap-3 text-center">
           {vector ? <CinemaCrystal vector={vector} size={220} accent={type?.accent ?? "#d8a657"} showLabels={false} /> : null}
@@ -64,7 +65,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
         {profile.shelves.map((shelf) =>
           shelf.movies.length > 0 ? (
             <section key={shelf.id} className="flex flex-col gap-4">
-              <SectionHeader title={shelf.name} caption={`${shelf.movies.length}`} />
+              <SectionHeader title={shelfDisplayName(shelf.kind, shelf.name)} caption={`${shelf.movies.length}`} />
               <ShelfRack
                 items={shelf.movies.map((item) => ({
                   id: item.id,

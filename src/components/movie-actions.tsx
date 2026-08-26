@@ -8,7 +8,7 @@ type ShelfKind = "watched" | "favorites" | "want_to_watch";
 const LABELS: Record<ShelfKind, string> = {
   watched: "WATCHED",
   favorites: "FAVORITE",
-  want_to_watch: "WANT TO WATCH",
+  want_to_watch: "WATCHLIST",
 };
 
 export function MovieActions({

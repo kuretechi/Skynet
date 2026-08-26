@@ -72,9 +72,8 @@
 }
 
 .page-bottom-fade {
-  content: "";
-  height: calc(7rem + env(safe-area-inset-bottom));
-  background: linear-gradient(to bottom, transparent 0%, color-mix(in srgb, var(--background) 72%, transparent) 42%, var(--background) 82%);
+  height: calc(9rem + env(safe-area-inset-bottom));
+  background: linear-gradient(to bottom, transparent 0%, color-mix(in srgb, var(--background) 58%, transparent) 46%, var(--background) 78%);
 }
 
 .bottom-nav {
@@ -223,8 +222,8 @@ body {
 }
 
 [data-ui="pop"] .page-bottom-fade {
-  height: calc(8rem + env(safe-area-inset-bottom));
-  background: linear-gradient(to bottom, transparent 0%, color-mix(in srgb, var(--background) 58%, transparent) 48%, var(--background) 84%);
+  height: calc(10.5rem + env(safe-area-inset-bottom));
+  background: linear-gradient(to bottom, transparent 0%, color-mix(in srgb, var(--background) 62%, transparent) 40%, var(--background) 72%);
 }
 
 [data-ui="pop"] .search-shell {
@@ -254,6 +253,15 @@ body {
   background: transparent;
   padding: 0;
   box-shadow: none;
+}
+
+.search-filter-panel summary:focus {
+  outline: none;
+}
+
+.search-filter-panel summary:focus-visible {
+  border-radius: 6px;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 32%, transparent);
 }
 
 .runtime-range {
@@ -286,6 +294,10 @@ body {
   background: transparent;
 }
 
+.runtime-range input[type="range"]:focus {
+  outline: none;
+}
+
 .runtime-range input[type="range"]::-webkit-slider-runnable-track {
   height: 4px;
   background: transparent;
@@ -303,6 +315,10 @@ body {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 75%, var(--line)), 0 3px 8px rgba(0, 0, 0, 0.24);
 }
 
+.runtime-range input[type="range"]:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent), 0 3px 8px rgba(0, 0, 0, 0.24);
+}
+
 .runtime-range input[type="range"]::-moz-range-track {
   height: 4px;
   background: transparent;
@@ -316,6 +332,10 @@ body {
   border-radius: 999px;
   background: var(--accent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 75%, var(--line)), 0 3px 8px rgba(0, 0, 0, 0.24);
+}
+
+.runtime-range input[type="range"]:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent), 0 3px 8px rgba(0, 0, 0, 0.24);
 }
 
 .search-filter-panel input[type="range"] {

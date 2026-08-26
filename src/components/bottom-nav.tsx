@@ -64,6 +64,8 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
+    <>
+    <div className="page-bottom-fade fixed inset-x-0 bottom-0 z-30 pointer-events-none" aria-hidden />
     <nav className="bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-[var(--line)] bg-[var(--nav-background)] backdrop-blur-md">
       <ul className="mx-auto flex max-w-3xl items-stretch">
         {TABS.map((tab) => {
@@ -89,5 +91,6 @@ export function BottomNav() {
         })}
       </ul>
     </nav>
+    </>
   );
 }

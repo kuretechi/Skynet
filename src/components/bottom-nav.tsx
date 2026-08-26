@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 const stroke = {
   fill: "none",
   stroke: "currentColor",
-  strokeWidth: 1.4,
+  strokeWidth: 1.8,
   strokeLinecap: "round" as const,
   strokeLinejoin: "round" as const,
 };
@@ -44,43 +44,44 @@ const DnaIcon = (
   </>
 );
 
-/** Two figures — other people. */
-const CommunityIcon = (
+/** Account and display preferences. */
+const ProfileIcon = (
   <>
-    <circle cx="9" cy="9" r="3" {...stroke} />
-    <path d="M3.5 19c.6-3 2.8-4.6 5.5-4.6S13.9 16 14.5 19" {...stroke} />
-    <path d="M16 6.6a3 3 0 0 1 0 5.8M17 14.7c2 .6 3.3 2.1 3.7 4.3" {...stroke} />
+    <circle cx="12" cy="8.5" r="3.5" {...stroke} />
+    <path d="M5 20c.7-4 3.2-6 7-6s6.3 2 7 6" {...stroke} />
   </>
 );
 
 const TABS: { href: string; label: string; icon: ReactNode }[] = [
-  { href: "/home", label: "Home", icon: HomeIcon },
   { href: "/discover", label: "Discover", icon: DiscoverIcon },
   { href: "/shelf", label: "Shelf", icon: ShelfIcon },
+  { href: "/home", label: "Home", icon: HomeIcon },
   { href: "/dna", label: "DNA", icon: DnaIcon },
-  { href: "/community", label: "Community", icon: CommunityIcon },
+  { href: "/profile", label: "Profile", icon: ProfileIcon },
 ];
 
 export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--line)] bg-[var(--nav-background)] backdrop-blur-md">
+    <nav className="bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-[var(--line)] bg-[var(--nav-background)] backdrop-blur-md">
       <ul className="mx-auto flex max-w-3xl items-stretch">
         {TABS.map((tab) => {
           const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
           return (
-            <li key={tab.href} className="flex-1">
+            <li key={tab.href} className={`flex-1 ${tab.href === "/home" ? "home-tab" : ""}`}>
               <Link
                 href={tab.href}
                 aria-label={tab.label}
                 aria-current={active ? "page" : undefined}
-                className="flex flex-col items-center gap-1 px-1 pt-2.5 pb-[max(0.6rem,env(safe-area-inset-bottom))] transition-colors"
+                className="nav-link flex flex-col items-center gap-1 px-1 pt-2.5 pb-[max(0.6rem,env(safe-area-inset-bottom))] transition-all"
                 style={{ color: active ? "var(--accent)" : "var(--muted)" }}
               >
+                <span className="nav-icon flex items-center justify-center">
                 <svg width={24} height={24} viewBox="0 0 24 24" aria-hidden focusable="false">
                   {tab.icon}
                 </svg>
+                </span>
                 <span className="text-[9px] tracking-[0.14em] uppercase">{tab.label}</span>
               </Link>
             </li>

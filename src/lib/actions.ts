@@ -203,6 +203,9 @@ export async function removeRatingAction(providerId: string) {
   if (!movie) return { error: "映画が見つかりませんでした" };
   await prisma.rating.deleteMany({ where: { userId: user.id, movieId: movie.id } });
   await refreshCinemaDna(user.id);
+  revalidatePath("/home");
+  revalidatePath("/dna");
+  revalidatePath("/profile");
   revalidatePath(`/movie/${providerId}`);
   return { ok: true };
 }

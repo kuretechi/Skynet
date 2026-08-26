@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { rateMovieAction } from "@/lib/actions";
+import { rateMovieAction, removeRatingAction } from "@/lib/actions";
+import { toggleRating } from "@/lib/ratings/toggle";
 
 const STEPS = Array.from({ length: 10 }, (_, i) => (i + 1) * 0.5);
 
@@ -14,7 +15,7 @@ export function RatingInput({
 }: {
   providerId: string;
   initialScore?: number | null;
-  onRated?: (score: number) => void;
+  onRated?: (score: number | null) => void;
   compact?: boolean;
 }) {
   const [score, setScore] = useState(initialScore ?? 0);
@@ -26,16 +27,19 @@ export function RatingInput({
 
   const submit = (value: number) => {
     const previous = score;
-    setScore(value);
+    const next = toggleRating(previous || null, value);
+    setScore(next ?? 0);
     setError(null);
     startTransition(async () => {
-      const result = await rateMovieAction(providerId, value);
+      const result = next === null
+        ? await removeRatingAction(providerId)
+        : await rateMovieAction(providerId, next);
       if (result?.error) {
         setScore(previous);
         setError(result.error);
         return;
       }
-      onRated?.(value);
+      onRated?.(next);
     });
   };
 
@@ -66,14 +70,14 @@ export function RatingInput({
               <button
                 type="button"
                 aria-label={`${half} 点`}
-                className="absolute inset-y-0 left-0 w-1/2"
+                className="rating-hit-area absolute inset-y-0 left-0 w-1/2"
                 onMouseEnter={() => setHover(half)}
                 onClick={() => submit(half)}
               />
               <button
                 type="button"
                 aria-label={`${full} 点`}
-                className="absolute inset-y-0 right-0 w-1/2"
+                className="rating-hit-area absolute inset-y-0 right-0 w-1/2"
                 onMouseEnter={() => setHover(full)}
                 onClick={() => submit(full)}
               />

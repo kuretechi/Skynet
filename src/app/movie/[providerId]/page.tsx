@@ -20,9 +20,8 @@ import { MovieNote } from "@/components/movie-note";
 import { MovieHero } from "@/components/movie-hero";
 import { PosterFrame, ScoreBlock, releaseYear } from "@/components/movie-visuals";
 import { RatingMasterpieceControls } from "@/components/rating-masterpiece-controls";
-import { ReviewSection } from "@/components/review-section";
 import { SectionHeader } from "@/components/movie-list";
-import { CarouselSkeleton, SectionSkeleton } from "@/components/skeletons";
+import { CarouselSkeleton } from "@/components/skeletons";
 import type { Movie } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -91,66 +90,64 @@ export default async function MovieDetailPage({ params }: { params: Promise<{ pr
             />
           </section>
 
-          <section className="flex flex-col gap-3">
-            <p className="text-sm leading-relaxed text-[var(--muted)]">{scored.explanation}</p>
-            <div className="flex flex-wrap gap-2">
-              {strengths.map((axis) => (
-                <span key={axis} className="label border border-[var(--line)] px-2 py-1">
-                  {AXIS_LABELS[axis].label}
-                </span>
-              ))}
-            </div>
-            <p className="font-mono text-[10px] text-[var(--muted)]">
-              CONFIDENCE {(scored.score.confidence * 100).toFixed(0)}%
-              {scored.external
-                ? ` · ${scored.external.provider.toUpperCase()} ${scored.external.score.toFixed(1)}/${scored.external.scale} (${scored.external.voteCount})`
-                : ""}
-            </p>
-          </section>
-
           <section className="flex flex-col gap-5">
             <RatingMasterpieceControls
               providerId={movie.providerId}
               initialScore={rating?.score ?? null}
               initialMasterpiece={rating?.masterpiece ?? false}
             />
+            <div className="flex flex-col gap-3 border-t border-[var(--line)] pt-5">
+              <p className="text-sm leading-relaxed text-[var(--muted)]">{scored.explanation}</p>
+              <div className="flex flex-wrap gap-2">
+                {strengths.map((axis) => (
+                  <span key={axis} className="label border border-[var(--line)] px-2 py-1">
+                    {AXIS_LABELS[axis].label}
+                  </span>
+                ))}
+              </div>
+              <p className="font-mono text-[10px] text-[var(--muted)]">
+                CONFIDENCE {(scored.score.confidence * 100).toFixed(0)}%
+                {scored.external
+                  ? ` · ${scored.external.provider.toUpperCase()} ${scored.external.score.toFixed(1)}/${scored.external.scale} (${scored.external.voteCount})`
+                  : ""}
+              </p>
+            </div>
             <MovieActions providerId={movie.providerId} initial={shelfState} customShelves={customShelves} />
             <CreateRoomButton providerId={movie.providerId} movieTitle={movie.title} />
           </section>
+
+          {movie.overview || cast.length > 0 ? (
+            <section className="flex flex-col gap-3">
+              {movie.overview ? (
+                <div className="flex flex-col gap-3">
+                  <SectionHeader title="Overview" />
+                  <p className="text-sm leading-relaxed">{movie.overview}</p>
+                </div>
+              ) : null}
+              {cast.length > 0 ? (
+                <div className={`flex flex-col gap-3 ${movie.overview ? "mt-3 border-t border-[var(--line)] pt-5" : ""}`}>
+                  <SectionHeader title="Cast" />
+                  <p className="text-sm text-[var(--muted)]">{cast.join(" · ")}</p>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
 
           <section className="flex flex-col gap-3">
             <SectionHeader title="Your Note" caption="自分だけのメモ / 公開されません" />
             <MovieNote providerId={movie.providerId} initial={note?.text ?? ""} />
           </section>
 
-          {movie.overview ? (
-            <section className="flex flex-col gap-3">
-              <SectionHeader title="Overview" />
-              <p className="text-sm leading-relaxed">{movie.overview}</p>
-            </section>
-          ) : null}
-
-          {cast.length > 0 ? (
-            <section className="flex flex-col gap-3">
-              <SectionHeader title="Cast" />
-              <p className="text-sm text-[var(--muted)]">{cast.join(" · ")}</p>
-            </section>
-          ) : null}
-
           <Suspense fallback={<CarouselSkeleton title="Similar Structure" />}>
             <SimilarStructure movie={movie} />
           </Suspense>
 
-          <Suspense fallback={<SectionSkeleton title="Reviews" rows={2} />}>
-            <Reviews movie={movie} userId={user.id} />
-          </Suspense>
         </main>
       </div>
       <BottomNav />
     </div>
   );
 }
-
 async function SimilarStructure({ movie }: { movie: Movie }) {
   const similar = await similarMovies(movie, 6);
   if (similar.length === 0) return null;
@@ -175,29 +172,5 @@ async function SimilarStructure({ movie }: { movie: Movie }) {
         ))}
       </ul>
     </section>
-  );
-}
-
-async function Reviews({ movie, userId }: { movie: Movie; userId: string }) {
-  const reviews = await prisma.review.findMany({
-    where: { movieId: movie.id },
-    include: { user: true, likes: true },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return (
-    <ReviewSection
-      providerId={movie.providerId}
-      userId={userId}
-      initialReviews={reviews.map((review) => ({
-        id: review.id,
-        userId: review.userId,
-        userName: review.user.name,
-        text: review.text,
-        spoiler: review.spoiler,
-        likeCount: review.likes.length,
-        liked: review.likes.some((like) => like.userId === userId),
-      }))}
-    />
   );
 }

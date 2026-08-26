@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import { MOODS } from "@/lib/recommend/moods";
 import { RatingInput } from "./rating-input";
 import { WatchlistButton } from "./watchlist-button";
@@ -75,21 +75,36 @@ function useSearch(query: string, mood: string, sort: Sort, filters: Filters) {
 }
 
 export function MovieSearch({ mode = "browse", ratedIds = [], onRated, placeholder = "タイトル・原題・別題・監督・キーワード", unified = false }:
-  { mode?: "browse" | "rate"; ratedIds?: string[]; onRated?: (providerId: string, score: number) => void; placeholder?: string; unified?: boolean }) {
+  { mode?: "browse" | "rate"; ratedIds?: string[]; onRated?: (providerId: string, score: number | null) => void; placeholder?: string; unified?: boolean }) {
   const [query, setQuery] = useState("");
   const [mood, setMood] = useState("");
   const [sort, setSort] = useState<Sort>("for-you");
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const [submitted, setSubmitted] = useState({
+    query: "",
+    mood: "",
+    sort: "for-you" as Sort,
+    filters: DEFAULT_FILTERS,
+  });
   const activeFilters = Number(filters.unwatched) + Number(Boolean(filters.genre)) + Number(Boolean(filters.decade)) + Number(Boolean(filters.country)) + Number(filters.runtimeMin !== RUNTIME_MIN || filters.runtimeMax !== RUNTIME_MAX);
-  const { results, loading } = useSearch(query, unified ? mood : "", unified ? sort : "for-you", unified ? filters : DEFAULT_FILTERS);
+  const { results, loading } = useSearch(submitted.query, submitted.mood, submitted.sort, submitted.filters);
   const updateFilter = <K extends keyof Filters>(key: K, value: Filters[K]) => setFilters((current) => ({ ...current, [key]: value }));
+  const submitSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSubmitted({
+      query: query.trim(),
+      mood: unified ? mood : "",
+      sort: unified ? sort : "for-you",
+      filters: unified ? { ...filters } : DEFAULT_FILTERS,
+    });
+  };
 
   return <div className="flex flex-col gap-4">
-    <div className="search-shell flex items-center gap-3 border-2 border-[var(--accent)] bg-[var(--surface)] px-4 py-3">
-      <span className="text-lg text-[var(--accent)]" aria-hidden>⌕</span>
+    <form onSubmit={submitSearch} className="search-shell flex items-center gap-3 border-2 border-[var(--accent)] bg-[var(--surface)] px-4 py-3">
       <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={placeholder}
         aria-label="映画を検索" className="min-w-0 flex-1 border-0 bg-transparent p-0 text-base outline-none placeholder:text-[var(--muted)]" />
-    </div>
+      <button type="submit" aria-label="検索" className="search-submit" disabled={loading}>⌕</button>
+    </form>
 
     {unified ? <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-2">{MOODS.map((item) => <button key={item.id} type="button" onClick={() => setMood(mood === item.id ? "" : item.id)}

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { FEATURE_VERSION, featureVector } from "@/lib/features/generate";
+import { featureVector, getOrCreateMovieFeaturesMany } from "@/lib/features/generate";
 import { posterUrl } from "@/lib/movies/repository";
 import { Logo } from "@/components/logo";
 import { DemoFlow, type DemoMovie } from "@/components/demo-flow";
@@ -15,22 +15,25 @@ export const revalidate = 600;
 
 /** Sign-in free walkthrough: pick a few movies, get a CineType and a Taste Universe. */
 export default async function DemoPage() {
-  const features = await prisma.movieFeature.findMany({
-    where: { featureVersion: FEATURE_VERSION },
-    include: { movie: true },
-    orderBy: { movie: { popularity: "desc" } },
+  const catalogue = await prisma.movie.findMany({
+    orderBy: { popularity: "desc" },
     take: 120,
   });
+  const features = await getOrCreateMovieFeaturesMany(catalogue);
 
-  const movies: DemoMovie[] = features.map((feature) => ({
-    id: feature.movieId,
-    providerId: feature.movie.providerId,
-    title: feature.movie.title,
-    year: releaseYear(feature.movie.releaseDate),
-    director: feature.movie.director,
-    posterUrl: posterUrl(feature.movie),
-    vector: featureVector(feature),
-  }));
+  const movies: DemoMovie[] = catalogue.flatMap((movie) => {
+    const feature = features.get(movie.id);
+    if (!feature) return [];
+    return [{
+      id: movie.id,
+      providerId: movie.providerId,
+      title: movie.title,
+      year: releaseYear(movie.releaseDate),
+      director: movie.director,
+      posterUrl: posterUrl(movie),
+      vector: featureVector(feature),
+    }];
+  });
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-8 px-6 py-12">
